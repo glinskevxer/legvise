@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "legvise"
+version = "0.1.0"
+description = "Cross-venue crypto arbitrage scanner for a prefunded trading desk"
+requires-python = ">=3.12"
+dependencies = ["click==8.1.8"]
+
+[project.optional-dependencies]
+dev = [
+  "pytest==8.3.4",
+  "pytest-cov==6.0.0",
+  "coverage==7.6.10",
+  "ruff==0.9.2",
+  "mypy==1.14.1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/legvise"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP", "SIM", "RET", "N"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+files = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["error"]
+
+[tool.ruff.lint.per-file-ignores]
+# The names read as sentences where they are raised: `raise NotFound("venue", k)`
+# says more at the call site than `NotFoundError` does.
+"src/legvise/errors.py" = ["N818"]
