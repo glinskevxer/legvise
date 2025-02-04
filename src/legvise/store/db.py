@@ -57,6 +57,15 @@ def connect(path: str | Path) -> sqlite3.Connection:
     return conn
 
 
+def _first_line(sql: str) -> str:
+    """The first non-blank line of a statement, for an error that has to be read."""
+    for line in sql.strip().splitlines():
+        stripped = line.strip()
+        if stripped:
+            return stripped
+    return "<empty statement>"
+
+
 class Database:
     """A thin wrapper that owns the connection and hands out rows.
 
@@ -111,14 +120,21 @@ class Database:
                 self._conn.execute("COMMIT")
 
     def execute(self, sql: str, params: Sequence[Any] = ()) -> sqlite3.Cursor:
-        """Run a statement, turning a unique violation into a `Conflict`."""
+        """Run a statement, translating what sqlite3 raises into package errors.
+
+        Nothing above this line should have to catch `sqlite3.Error`. A caller
+        that catches `LegviseError` and still gets an `OperationalError` through
+        is the bug this guards against.
+        """
         try:
             return self._conn.execute(sql, tuple(params))
         except sqlite3.IntegrityError as exc:
             text = str(exc)
             if "UNIQUE" in text:
                 raise Conflict("row", text.split(":")[-1].strip()) from None
-            raise BadArgument("statement", sql.strip().split("\n")[0], text) from None
+            raise BadArgument("statement", _first_line(sql), text) from None
+        except sqlite3.OperationalError as exc:
+            raise BadArgument("statement", _first_line(sql), str(exc)) from None
 
     def query(self, sql: str, params: Sequence[Any] = ()) -> list[sqlite3.Row]:
         """Every row a statement returns."""
