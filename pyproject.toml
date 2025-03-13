@@ -18,6 +18,9 @@ dev = [
   "mypy==1.14.1",
 ]
 
+[project.scripts]
+legvise = "legvise.cli.main:main"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/legvise"]
 
@@ -42,3 +45,7 @@ filterwarnings = ["error"]
 # The names read as sentences where they are raised: `raise NotFound("venue", k)`
 # says more at the call site than `NotFoundError` does.
 "src/legvise/errors.py" = ["N818"]
+# A module under `legvise.model` or `legvise.cli` cannot shadow anything on the
+# import path, and `venue.py` next to `venue.py` is the clearest name for both.
+"src/legvise/model/*.py" = ["A005"]
+"src/legvise/cli/*.py" = ["A005"]
