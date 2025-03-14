@@ -12,7 +12,7 @@ from pathlib import Path
 import click
 
 from legvise import __version__
-from legvise.cli import venue
+from legvise.cli import instrument, venue
 from legvise.cli.options import DEFAULT_DB, Context, DeskGroup, open_context
 from legvise.errors import LegviseError
 
@@ -42,6 +42,7 @@ def _close(obj: Context) -> None:
     obj.db.close()
 
 
+cli.add_command(instrument.group)
 cli.add_command(venue.group)
 
 
