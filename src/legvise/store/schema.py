@@ -46,7 +46,36 @@ _M0001 = Migration(
     ),
 )
 
-MIGRATIONS: tuple[Migration, ...] = (_M0001,)
+_M0002 = Migration(
+    version=2,
+    name="book snapshots",
+    statements=(
+        """
+        CREATE TABLE book_snapshot (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            venue_code  TEXT NOT NULL REFERENCES venue (code) ON DELETE CASCADE,
+            symbol      TEXT NOT NULL,
+            observed_at TEXT NOT NULL,
+            sequence    INTEGER NOT NULL CHECK (sequence >= 0)
+        )
+        """,
+        """
+        CREATE TABLE book_level (
+            snapshot_id INTEGER NOT NULL REFERENCES book_snapshot (id) ON DELETE CASCADE,
+            side        TEXT NOT NULL CHECK (side IN ('bid', 'ask')),
+            rank        INTEGER NOT NULL CHECK (rank >= 0),
+            price       TEXT NOT NULL,
+            size        TEXT NOT NULL,
+            PRIMARY KEY (snapshot_id, side, rank)
+        )
+        """,
+        "CREATE INDEX ix_snapshot_lookup ON book_snapshot (venue_code, symbol, observed_at)",
+        "CREATE INDEX ix_snapshot_symbol ON book_snapshot (symbol)",
+        "CREATE INDEX ix_level_snapshot ON book_level (snapshot_id)",
+    ),
+)
+
+MIGRATIONS: tuple[Migration, ...] = (_M0001, _M0002)
 
 
 def install(db: Database, *, applied_at: str) -> tuple[int, ...]:
