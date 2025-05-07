@@ -75,7 +75,31 @@ _M0002 = Migration(
     ),
 )
 
-MIGRATIONS: tuple[Migration, ...] = (_M0001, _M0002)
+_M0003 = Migration(
+    version=3,
+    name="fee ladders and trailing volume",
+    statements=(
+        """
+        CREATE TABLE fee_tier (
+            venue_code     TEXT NOT NULL REFERENCES venue (code) ON DELETE CASCADE,
+            rung           INTEGER NOT NULL CHECK (rung >= 0),
+            min_volume_30d TEXT NOT NULL,
+            maker_bps      TEXT NOT NULL,
+            taker_bps      TEXT NOT NULL,
+            PRIMARY KEY (venue_code, rung)
+        )
+        """,
+        """
+        CREATE TABLE venue_volume (
+            venue_code  TEXT PRIMARY KEY REFERENCES venue (code) ON DELETE CASCADE,
+            volume_30d  TEXT NOT NULL,
+            as_of       TEXT NOT NULL
+        )
+        """,
+    ),
+)
+
+MIGRATIONS: tuple[Migration, ...] = (_M0001, _M0002, _M0003)
 
 
 def install(db: Database, *, applied_at: str) -> tuple[int, ...]:
