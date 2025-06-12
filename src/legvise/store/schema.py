@@ -99,7 +99,36 @@ _M0003 = Migration(
     ),
 )
 
-MIGRATIONS: tuple[Migration, ...] = (_M0001, _M0002, _M0003)
+_M0004 = Migration(
+    version=4,
+    name="positions and inventory bands",
+    statements=(
+        """
+        CREATE TABLE position (
+            venue_code TEXT NOT NULL REFERENCES venue (code) ON DELETE CASCADE,
+            asset      TEXT NOT NULL,
+            free       TEXT NOT NULL,
+            locked     TEXT NOT NULL,
+            as_of      TEXT NOT NULL,
+            PRIMARY KEY (venue_code, asset)
+        )
+        """,
+        """
+        CREATE TABLE inventory_band (
+            venue_code  TEXT NOT NULL REFERENCES venue (code) ON DELETE CASCADE,
+            asset       TEXT NOT NULL,
+            floor_qty   TEXT NOT NULL,
+            target_qty  TEXT NOT NULL,
+            ceiling_qty TEXT NOT NULL,
+            PRIMARY KEY (venue_code, asset)
+        )
+        """,
+        "CREATE INDEX ix_position_asset ON position (asset)",
+        "CREATE INDEX ix_band_asset ON inventory_band (asset)",
+    ),
+)
+
+MIGRATIONS: tuple[Migration, ...] = (_M0001, _M0002, _M0003, _M0004)
 
 
 def install(db: Database, *, applied_at: str) -> tuple[int, ...]:
