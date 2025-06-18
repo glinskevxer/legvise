@@ -128,7 +128,38 @@ _M0004 = Migration(
     ),
 )
 
-MIGRATIONS: tuple[Migration, ...] = (_M0001, _M0002, _M0003, _M0004)
+_M0005 = Migration(
+    version=5,
+    name="transfer networks",
+    statements=(
+        """
+        CREATE TABLE transfer_network (
+            asset                    TEXT NOT NULL,
+            code                     TEXT NOT NULL,
+            withdraw_fee             TEXT NOT NULL,
+            min_withdraw             TEXT NOT NULL,
+            confirmations            INTEGER NOT NULL CHECK (confirmations > 0),
+            minutes_per_confirmation TEXT NOT NULL,
+            PRIMARY KEY (asset, code)
+        )
+        """,
+        """
+        CREATE TABLE venue_network (
+            venue_code       TEXT NOT NULL REFERENCES venue (code) ON DELETE CASCADE,
+            asset            TEXT NOT NULL,
+            network          TEXT NOT NULL,
+            deposit_enabled  INTEGER NOT NULL CHECK (deposit_enabled IN (0, 1)),
+            withdraw_enabled INTEGER NOT NULL CHECK (withdraw_enabled IN (0, 1)),
+            PRIMARY KEY (venue_code, asset, network),
+            FOREIGN KEY (asset, network)
+                REFERENCES transfer_network (asset, code) ON DELETE CASCADE
+        )
+        """,
+        "CREATE INDEX ix_venue_network_pair ON venue_network (asset, network)",
+    ),
+)
+
+MIGRATIONS: tuple[Migration, ...] = (_M0001, _M0002, _M0003, _M0004, _M0005)
 
 
 def install(db: Database, *, applied_at: str) -> tuple[int, ...]:
