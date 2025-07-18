@@ -159,7 +159,59 @@ _M0005 = Migration(
     ),
 )
 
-MIGRATIONS: tuple[Migration, ...] = (_M0001, _M0002, _M0003, _M0004, _M0005)
+_M0006 = Migration(
+    version=6,
+    name="scan sessions and plans",
+    statements=(
+        """
+        CREATE TABLE scan_session (
+            ref               TEXT PRIMARY KEY,
+            started_at        TEXT NOT NULL,
+            min_edge_bps      TEXT NOT NULL,
+            pairing_window_ms INTEGER NOT NULL CHECK (pairing_window_ms >= 0),
+            wanted_size       TEXT NOT NULL
+        )
+        """,
+        """
+        CREATE TABLE plan (
+            ref           TEXT PRIMARY KEY,
+            session_ref   TEXT NOT NULL REFERENCES scan_session (ref) ON DELETE CASCADE,
+            kind          TEXT NOT NULL CHECK (kind IN ('cross_venue', 'triangular')),
+            symbol        TEXT NOT NULL,
+            notional      TEXT NOT NULL,
+            gross_bps     TEXT NOT NULL,
+            fee_bps       TEXT NOT NULL,
+            slippage_bps  TEXT NOT NULL,
+            rebalance_bps TEXT NOT NULL,
+            net_bps       TEXT NOT NULL,
+            status        TEXT NOT NULL CHECK (status IN ('priced', 'trimmed', 'refused')),
+            clause        TEXT
+        )
+        """,
+        """
+        CREATE TABLE plan_leg (
+            plan_ref     TEXT NOT NULL REFERENCES plan (ref) ON DELETE CASCADE,
+            leg_index    INTEGER NOT NULL CHECK (leg_index >= 0),
+            venue_code   TEXT NOT NULL,
+            symbol       TEXT NOT NULL,
+            takes        TEXT NOT NULL CHECK (takes IN ('bid', 'ask')),
+            price        TEXT NOT NULL,
+            size         TEXT NOT NULL,
+            fee_bps      TEXT NOT NULL,
+            fee_amount   TEXT NOT NULL,
+            levels_swept INTEGER NOT NULL CHECK (levels_swept >= 1),
+            slippage_bps TEXT NOT NULL,
+            PRIMARY KEY (plan_ref, leg_index)
+        )
+        """,
+        "CREATE INDEX ix_plan_session ON plan (session_ref)",
+        "CREATE INDEX ix_plan_clause ON plan (clause)",
+        "CREATE INDEX ix_plan_symbol ON plan (symbol)",
+        "CREATE INDEX ix_plan_leg_plan ON plan_leg (plan_ref)",
+    ),
+)
+
+MIGRATIONS: tuple[Migration, ...] = (_M0001, _M0002, _M0003, _M0004, _M0005, _M0006)
 
 
 def install(db: Database, *, applied_at: str) -> tuple[int, ...]:
