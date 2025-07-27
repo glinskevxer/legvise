@@ -1,0 +1,144 @@
+"""The book command group."""
+
+from __future__ import annotations
+
+import pytest
+from click.testing import CliRunner
+
+from legvise.cli.main import cli
+from tests.cli.conftest import Run
+
+
+@pytest.fixture()
+def loaded(seeded: Run) -> Run:
+    seeded(
+        "book",
+        "load",
+        "kraken",
+        "BTC-USD",
+        "--bid",
+        "99.00:2",
+        "--bid",
+        "98.50:5",
+        "--ask",
+        "100.00:1",
+        "--ask",
+        "100.50:4",
+        "--observed-at",
+        "2025-08-01T09:00:00+00:00",
+    )
+    return seeded
+
+
+def test_loading_a_snapshot_reports_the_level_counts(seeded: Run) -> None:
+    result = seeded("book", "load", "kraken", "BTC-USD", "--bid", "99:1", "--ask", "100:1")
+    assert "2x1 levels" not in result.output
+    assert "1x1 levels" in result.output
+
+
+def test_a_level_that_is_not_price_and_size_is_a_usage_error(seeded: Run) -> None:
+    result = seeded("book", "load", "kraken", "BTC-USD", "--bid", "99", expect=2)
+    assert "price:size" in result.output
+
+
+def test_a_crossed_snapshot_is_refused(seeded: Run) -> None:
+    seeded("book", "load", "kraken", "BTC-USD", "--bid", "101:1", "--ask", "100:1", expect=1)
+
+
+def test_bids_in_the_wrong_order_are_refused(seeded: Run) -> None:
+    seeded(
+        "book",
+        "load",
+        "kraken",
+        "BTC-USD",
+        "--bid",
+        "98:1",
+        "--bid",
+        "99:1",
+        "--ask",
+        "100:1",
+        expect=1,
+    )
+
+
+def test_showing_a_book_prints_both_sides(loaded: Run) -> None:
+    output = loaded("book", "show", "kraken", "BTC-USD").output
+    assert "99.00" in output
+    assert "100.00" in output
+
+
+def test_showing_a_book_prints_the_mid_and_the_spread(loaded: Run) -> None:
+    output = loaded("book", "show", "kraken", "BTC-USD").output
+    assert "mid 99.50000000" in output
+    assert "spread 100.50 bps" in output
+    assert "bps" in output
+
+
+def test_showing_a_book_reports_when_it_was_observed(loaded: Run) -> None:
+    assert "2025-08-01T09:00:00" in loaded("book", "show", "kraken", "BTC-USD").output
+
+
+def test_the_depth_printed_can_be_limited(loaded: Run) -> None:
+    lines = loaded("book", "show", "kraken", "BTC-USD", "--depth", "1").output.splitlines()
+    assert len(lines) == 5
+
+
+def test_a_market_with_no_snapshot_is_a_not_found(seeded: Run) -> None:
+    result = seeded("book", "show", "kraken", "BTC-USD", expect=1)
+    assert "book snapshot" in result.output
+
+
+def test_the_touch_command_crosses_the_venues(loaded: Run) -> None:
+    loaded("book", "load", "okx", "BTC-USD", "--bid", "101:1", "--ask", "102:1")
+    output = loaded("book", "touch", "BTC-USD").output
+    assert "kraken" in output
+    assert "okx" in output
+
+
+def test_a_one_sided_book_shows_a_dash_at_the_touch(seeded: Run) -> None:
+    seeded("book", "load", "kraken", "BTC-USD", "--bid", "99:1")
+    assert "-" in seeded("book", "touch", "BTC-USD").output
+
+
+def test_levels_prints_one_side_machine_readably(loaded: Run) -> None:
+    output = loaded("book", "levels", "kraken", "BTC-USD", "bid").output
+    assert output.strip().splitlines() == ["99.00:2", "98.50:5"]
+
+
+def test_an_unknown_side_is_a_usage_error(loaded: Run) -> None:
+    loaded("book", "levels", "kraken", "BTC-USD", "middle", expect=2)
+
+
+def test_pruning_drops_the_old_snapshots(loaded: Run) -> None:
+    result = loaded("book", "prune", "2025-08-02T00:00:00+00:00")
+    assert "dropped 1 snapshots" in result.output
+    loaded("book", "show", "kraken", "BTC-USD", expect=1)
+
+
+def test_pruning_needs_an_instant_with_an_offset(loaded: Run) -> None:
+    loaded("book", "prune", "2025-08-02", expect=1)
+
+
+def test_a_snapshot_can_be_read_from_standard_input(seeded: Run, book: object) -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["--db", str(book), "book", "load", "kraken", "BTC-USD", "--stdin"],
+        input="bid:99:2\nask:100:1\n\n",
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0
+    assert "1x1 levels" in result.output
+
+
+def test_a_standard_input_line_that_is_not_three_parts_is_a_usage_error(
+    seeded: Run, book: object
+) -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["--db", str(book), "book", "load", "kraken", "BTC-USD", "--stdin"],
+        input="bid:99\n",
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 2

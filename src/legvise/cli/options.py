@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from decimal import ROUND_HALF_EVEN, Decimal
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +21,15 @@ from legvise.errors import LegviseError
 from legvise.store.db import Database
 from legvise.store.schema import install
 
-__all__ = ["Context", "DeskGroup", "app", "db_option", "echo_rows", "open_context"]
+__all__ = [
+    "Context",
+    "DeskGroup",
+    "app",
+    "bps_text",
+    "db_option",
+    "echo_rows",
+    "open_context",
+]
 
 DEFAULT_DB = "legvise.sqlite3"
 
@@ -81,6 +90,17 @@ class DeskGroup(click.Group):
             return super().invoke(ctx)
         except LegviseError as exc:
             raise click.ClickException(exc.message) from exc
+
+
+def bps_text(value: Decimal, places: str = "0.01") -> str:
+    """A basis point figure at a readable scale.
+
+    Division on `Decimal` runs to the context precision, so an honest spread
+    calculation can print twenty eight significant figures. That is right in
+    the arithmetic and useless on a terminal, so display rounds and storage
+    does not.
+    """
+    return str(value.quantize(Decimal(places), rounding=ROUND_HALF_EVEN))
 
 
 def echo_rows(rows: Sequence[Sequence[str]], headers: Sequence[str]) -> None:
