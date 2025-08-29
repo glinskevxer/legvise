@@ -100,6 +100,54 @@ def _consume(levels: tuple[Level, ...], side: Side, target: Decimal) -> Sweep:
     )
 
 
+def walk_for_notional(book: Book, side: Side, budget: Decimal) -> Sweep:
+    """Fill against `side` until `budget` of the quote asset is used up.
+
+    The mirror of `walk`, and the one a conversion loop needs: a hop that starts
+    holding the quote asset knows what it has to spend, not what size that buys.
+    Working it out by dividing the budget by the touch and then walking is wrong
+    the moment the first level runs out, because the average price rises as the
+    walk goes on and the affordable size falls with it.
+    """
+    if budget <= ZERO:
+        raise BadArgument("budget", str(budget), "a walk needs a positive budget")
+    levels = book.side(side)
+    if not levels:
+        return _empty(side)
+    remaining = budget
+    size = ZERO
+    notional = ZERO
+    touched = 0
+    worst = ZERO
+    for level in levels:
+        if remaining <= ZERO:
+            break
+        affordable = remaining / level.price
+        worst = level.price
+        touched += 1
+        if affordable <= level.size:
+            # This level covers the rest. Book the remaining budget exactly
+            # rather than multiplying the divided size back up: the round trip
+            # through a division leaves dust, and dust here reads as an
+            # unfillable walk.
+            size += affordable
+            notional += remaining
+            remaining = ZERO
+            break
+        size += level.size
+        spent = level.size * level.price
+        notional += spent
+        remaining -= spent
+    return Sweep(
+        side=side,
+        size=size,
+        notional=notional,
+        levels=touched,
+        worst_price=worst,
+        complete=remaining <= ZERO,
+    )
+
+
 def reachable(book: Book, side: Side, limit_bps: Decimal) -> Sweep:
     """Everything resting within `limit_bps` of the touch on `side`.
 
