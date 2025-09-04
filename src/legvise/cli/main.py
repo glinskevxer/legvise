@@ -12,7 +12,17 @@ from pathlib import Path
 import click
 
 from legvise import __version__
-from legvise.cli import book, fee, instrument, inventory, network, plan, scan, venue
+from legvise.cli import (
+    book,
+    fee,
+    instrument,
+    inventory,
+    loop,
+    network,
+    plan,
+    scan,
+    venue,
+)
 from legvise.cli.options import DEFAULT_DB, Context, DeskGroup, open_context
 from legvise.errors import LegviseError
 
@@ -46,6 +56,7 @@ cli.add_command(book.group)
 cli.add_command(fee.group)
 cli.add_command(instrument.group)
 cli.add_command(inventory.group)
+cli.add_command(loop.group)
 cli.add_command(network.group)
 cli.add_command(plan.group)
 cli.add_command(scan.group)
