@@ -211,7 +211,38 @@ _M0006 = Migration(
     ),
 )
 
-MIGRATIONS: tuple[Migration, ...] = (_M0001, _M0002, _M0003, _M0004, _M0005, _M0006)
+_M0007 = Migration(
+    version=7,
+    name="fills",
+    statements=(
+        """
+        CREATE TABLE fill (
+            plan_ref       TEXT NOT NULL REFERENCES plan (ref) ON DELETE CASCADE,
+            leg_index      INTEGER NOT NULL CHECK (leg_index >= 0),
+            venue_code     TEXT NOT NULL,
+            takes          TEXT NOT NULL CHECK (takes IN ('bid', 'ask')),
+            price          TEXT NOT NULL,
+            size           TEXT NOT NULL,
+            fee_amount     TEXT NOT NULL,
+            filled_at      TEXT NOT NULL,
+            venue_trade_id TEXT NOT NULL,
+            PRIMARY KEY (venue_code, venue_trade_id)
+        )
+        """,
+        "CREATE INDEX ix_fill_plan ON fill (plan_ref, leg_index)",
+        "CREATE INDEX ix_fill_time ON fill (filled_at)",
+    ),
+)
+
+MIGRATIONS: tuple[Migration, ...] = (
+    _M0001,
+    _M0002,
+    _M0003,
+    _M0004,
+    _M0005,
+    _M0006,
+    _M0007,
+)
 
 
 def install(db: Database, *, applied_at: str) -> tuple[int, ...]:
