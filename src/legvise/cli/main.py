@@ -15,6 +15,7 @@ from legvise import __version__
 from legvise.cli import (
     book,
     fee,
+    fill,
     instrument,
     inventory,
     loop,
@@ -54,6 +55,7 @@ def _close(obj: Context) -> None:
 
 cli.add_command(book.group)
 cli.add_command(fee.group)
+cli.add_command(fill.group)
 cli.add_command(instrument.group)
 cli.add_command(inventory.group)
 cli.add_command(loop.group)
