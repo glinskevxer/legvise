@@ -21,6 +21,7 @@ from legvise.cli import (
     loop,
     network,
     plan,
+    report,
     scan,
     venue,
 )
@@ -61,6 +62,7 @@ cli.add_command(inventory.group)
 cli.add_command(loop.group)
 cli.add_command(network.group)
 cli.add_command(plan.group)
+cli.add_command(report.group)
 cli.add_command(scan.group)
 cli.add_command(venue.group)
 

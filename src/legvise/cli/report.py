@@ -1,0 +1,136 @@
+"""Commands that print and export the reports."""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+import click
+
+from legvise.cli.options import app, bps_text, echo_rows
+from legvise.report.edge_report import build_edge_report
+from legvise.report.export import (
+    PLAN_FIELDS,
+    plan_rows,
+    write_csv,
+    write_edge_json,
+    write_session_json,
+)
+from legvise.report.session_report import summarise
+from legvise.store.fills import FillStore
+from legvise.store.plans import PlanStore
+
+__all__ = ["group"]
+
+
+@click.group("report")
+def group() -> None:
+    """Print and export what the scanner and the fills came to."""
+
+
+@group.command("session")
+@click.argument("session")
+@click.pass_context
+def session(ctx: click.Context, session: str) -> None:
+    """Print one session's summary."""
+    context = app(ctx)
+    found = summarise(PlanStore(context.db), session)
+    click.echo(f"session     {found.session}")
+    click.echo(f"started     {found.started_at}")
+    click.echo(f"min edge    {bps_text(found.min_edge_bps)} bps")
+    click.echo(f"plans       {found.plans}")
+    click.echo(f"actionable  {found.actionable}")
+    click.echo(f"trimmed     {found.trimmed}")
+    click.echo(f"refused     {found.refused}")
+    click.echo(f"hit rate    {bps_text(found.hit_rate, '0.0001')}")
+    click.echo(f"notional    {found.total_notional}")
+    if found.best_net_bps is not None:
+        click.echo(f"best        {bps_text(found.best_net_bps)} bps")
+    if found.clauses:
+        echo_rows(
+            [(line.code, str(line.hits), line.text) for line in found.clauses],
+            ("clause", "hits", "says"),
+        )
+
+
+@group.command("edge")
+@click.option("--session", "session_ref", default=None, help="One session, or every plan.")
+@click.pass_context
+def edge(ctx: click.Context, session_ref: str | None) -> None:
+    """Print expected against realised, weighted by notional."""
+    context = app(ctx)
+    report = build_edge_report(
+        PlanStore(context.db), FillStore(context.db), session_ref=session_ref
+    )
+    click.echo(f"plans        {report.plans}")
+    click.echo(f"notional     {report.total_notional}")
+    click.echo(f"expected     {bps_text(report.expected_bps)} bps")
+    click.echo(f"realised     {bps_text(report.realised_bps)} bps")
+    click.echo(f"gap          {bps_text(report.gap_bps)} bps")
+    click.echo(f"price drift  {bps_text(report.price_drift_bps)} bps")
+    click.echo(f"fee drift    {bps_text(report.fee_drift_bps)} bps")
+    click.echo(f"made         {bps_text(report.realised_amount, '0.00000001')}")
+    for ref in report.leg_risk_plans:
+        click.echo(f"LEG RISK     {ref}", err=True)
+
+
+@group.command("export")
+@click.argument("session")
+@click.option(
+    "--format",
+    "shape",
+    type=click.Choice(["csv", "json"]),
+    default="csv",
+    show_default=True,
+    help="CSV for the spreadsheet, JSON for the dashboard.",
+)
+@click.option(
+    "--out",
+    "target",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=None,
+    help="Where to write it. Standard output if not given.",
+)
+@click.pass_context
+def export(ctx: click.Context, session: str, shape: str, target: Path | None) -> None:
+    """Export one session's plans."""
+    context = app(ctx)
+    store = PlanStore(context.db)
+    handle = sys.stdout if target is None else target.open("w", encoding="utf-8", newline="")
+    try:
+        if shape == "csv":
+            count = write_csv(handle, plan_rows(store.for_session(session)), PLAN_FIELDS)
+        else:
+            write_session_json(handle, summarise(store, session))
+            count = summarise(store, session).plans
+    finally:
+        if target is not None:
+            handle.close()
+    if target is not None and not context.quiet:
+        click.echo(f"wrote {count} plans to {target}")
+
+
+@group.command("export-edge")
+@click.option("--session", "session_ref", default=None, help="One session, or every plan.")
+@click.option(
+    "--out",
+    "target",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=None,
+    help="Where to write it. Standard output if not given.",
+)
+@click.pass_context
+def export_edge(ctx: click.Context, session_ref: str | None, target: Path | None) -> None:
+    """Export the edge report as JSON."""
+    context = app(ctx)
+    report = build_edge_report(
+        PlanStore(context.db), FillStore(context.db), session_ref=session_ref
+    )
+    handle = sys.stdout if target is None else target.open("w", encoding="utf-8", newline="")
+    try:
+        write_edge_json(handle, report)
+    finally:
+        if target is not None:
+            handle.close()
+    if target is not None and not context.quiet:
+        click.echo(f"wrote {report.plans} plans to {target}")
