@@ -59,7 +59,15 @@ def test_every_test_module_is_found() -> None:
 
 def test_imports_are_read_from_both_forms() -> None:
     source = a_source("import legvise.errors\nfrom legvise.money import dec\nimport json\n")
-    assert set(source.imports()) == {"legvise.errors", "legvise.money"}
+    assert set(source.imports()) == {"legvise.errors", "legvise.money", "legvise.money.dec"}
+
+
+def test_a_from_import_reports_the_dotted_candidate_as_well() -> None:
+    # `book` here is a module and `dec` above is a function. The AST cannot tell
+    # them apart, so both candidates are reported and the caller filters.
+    source = a_source("from legvise.cli import book, fee\n")
+    assert "legvise.cli.book" in source.imports()
+    assert "legvise.cli.fee" in source.imports()
 
 
 def test_a_module_with_no_package_imports_reports_none() -> None:

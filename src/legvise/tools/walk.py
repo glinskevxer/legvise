@@ -53,12 +53,21 @@ class SourceFile:
         return ast.get_docstring(self.tree)
 
     def imports(self) -> tuple[str, ...]:
-        """Every `legvise` module this one imports, in source order."""
+        """Every `legvise` path this module imports, in source order.
+
+        `from legvise.cli import book` names a module, and `from legvise.money
+        import dec` names a function, and the AST cannot tell them apart without
+        looking at the filesystem. So both the package and the dotted candidate
+        are reported, and the caller keeps whichever ones turn out to be real
+        modules. Reporting only the package would make every submodule imported
+        that way look unreachable.
+        """
         found: list[str] = []
         for node in ast.walk(self.tree):
             if isinstance(node, ast.ImportFrom) and node.module:
                 if node.module.startswith("legvise"):
                     found.append(node.module)
+                    found.extend(f"{node.module}.{alias.name}" for alias in node.names)
             elif isinstance(node, ast.Import):
                 found.extend(alias.name for alias in node.names if alias.name.startswith("legvise"))
         return tuple(found)
