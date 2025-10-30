@@ -213,7 +213,7 @@ _M0006 = Migration(
 
 _M0007 = Migration(
     version=7,
-    name="fills",
+    name="fills against a plan",
     statements=(
         """
         CREATE TABLE fill (
