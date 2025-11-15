@@ -79,10 +79,43 @@ class SourceFile:
                 yield node
 
     def string_constants(self) -> Iterator[str]:
-        """Every string literal in the module."""
+        """Every string literal in the module, docstrings included."""
         for node in ast.walk(self.tree):
             if isinstance(node, ast.Constant) and isinstance(node.value, str):
                 yield node.value
+
+    def code_strings(self) -> Iterator[str]:
+        """Every string literal that is not a docstring.
+
+        A check that reads prose finds whatever the prose describes. This module
+        explains SQL in its own docstring and would fail its own SQL check
+        without this, which is funny once and a false positive forever.
+        """
+        skip = {id(doc) for doc in _docstring_nodes(self.tree)}
+        for node in ast.walk(self.tree):
+            if not isinstance(node, ast.Constant) or not isinstance(node.value, str):
+                continue
+            if id(node) not in skip:
+                yield node.value
+
+
+def _docstring_nodes(tree: ast.Module) -> Iterator[ast.Constant]:
+    """The docstring literal of the module and of every definition in it."""
+    holders: list[ast.AST] = [tree]
+    holders.extend(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef)
+    )
+    for holder in holders:
+        body = getattr(holder, "body", [])
+        if not body:
+            continue
+        first = body[0]
+        if not isinstance(first, ast.Expr) or not isinstance(first.value, ast.Constant):
+            continue
+        if isinstance(first.value.value, str):
+            yield first.value
 
 
 def _parse(path: Path, root: Path, prefix: str) -> SourceFile:
