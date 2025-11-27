@@ -1,0 +1,9 @@
+# Digest of every migration that has shipped. Append only.
+# Edit a line here and check_migrations will tell you why not.
+0001 20678ebd1afdad82 venues and instruments
+0002 6af7d37c83309d19 book snapshots
+0003 c65c04d5aeeb10df fee ladders and trailing volume
+0004 02435eac0b8757ef positions and inventory bands
+0005 0870c259b56cdbaa transfer networks
+0006 708d886a68715bf5 scan sessions and plans
+0007 50f89272a82233af fills against a plan
