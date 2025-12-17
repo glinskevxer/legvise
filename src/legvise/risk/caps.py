@@ -117,11 +117,17 @@ def trim_to_caps(caps: CapSet, requested: Decimal, *, subject: str) -> Trim:
 
 
 def require_trim(caps: CapSet, requested: Decimal, *, subject: str, floor: Decimal) -> Decimal:
-    """Trim, then refuse if what is left is too small to be worth sending."""
+    """Trim, then refuse if what is left is too small to be worth sending.
+
+    The clause is chosen by an `if` rather than by passing `bound_by` through,
+    so each code appears as a literal at the point that raises it. A refusal
+    assembled from a variable is invisible to anything reading the source, and
+    the rule book check reads the source.
+    """
     trimmed = trim_to_caps(caps, requested, subject=subject)
-    if trimmed.allowed < floor:
-        raise refuse(
-            trimmed.bound_by or "CAP.01",
-            f"{subject} trims to {trimmed.allowed} against a floor of {floor}",
-        )
-    return trimmed.allowed
+    if trimmed.allowed >= floor:
+        return trimmed.allowed
+    detail = f"{subject} trims to {trimmed.allowed} against a floor of {floor}"
+    if trimmed.bound_by == "CAP.02":
+        raise refuse("CAP.02", detail)
+    raise refuse("CAP.01", detail)
