@@ -66,7 +66,7 @@ def test_best_prints_the_reference_and_the_edge(scanned: tuple[Run, str]) -> Non
     assert len(line.split()) == 2
 
 
-def test_best_takes_a_count(scanned: tuple[Run, str]) -> None:
+def test_the_best_command_takes_a_count(scanned: tuple[Run, str]) -> None:
     desk, session = scanned
     assert len(desk("plan", "best", session, "--count", "1").output.strip().splitlines()) == 1
 

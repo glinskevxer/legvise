@@ -50,7 +50,7 @@ def test_volume_beyond_the_top_rung_stops_at_the_top() -> None:
     assert resolve(LADDER, dec("9999999999")).is_rebate
 
 
-def test_negative_volume_is_refused() -> None:
+def test_a_negative_trailing_volume_is_refused() -> None:
     with pytest.raises(BadArgument):
         rung_index(LADDER, dec("-1"))
 

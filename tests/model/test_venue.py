@@ -46,7 +46,7 @@ def test_a_venue_is_active_and_pays_no_rebate_unless_told_otherwise() -> None:
     assert venue.pays_maker_rebate is False
 
 
-def test_a_venue_is_immutable() -> None:
+def test_a_venue_cannot_be_changed_after_it_is_built() -> None:
     venue = a_venue()
     with pytest.raises(AttributeError):
         venue.code = "other"  # type: ignore[misc]
@@ -99,7 +99,7 @@ def test_deactivating_leaves_everything_else_alone() -> None:
     assert venue.active is True
 
 
-def test_replacing_revalidates_the_result() -> None:
+def test_replacing_a_field_revalidates_the_result() -> None:
     venue = a_venue()
     with pytest.raises(BadArgument):
         venue.replacing(staleness_budget_ms=0)

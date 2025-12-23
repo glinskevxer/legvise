@@ -82,7 +82,7 @@ def test_a_venue_code_is_normalised_on_the_way_in() -> None:
     assert FeeLadder.build(" Kraken ", RUNGS).venue == "kraken"
 
 
-def test_a_ladder_is_immutable() -> None:
+def test_a_ladder_cannot_be_changed_after_it_is_built() -> None:
     ladder = FeeLadder.build("kraken", RUNGS)
     with pytest.raises(AttributeError):
         ladder.tiers = ()  # type: ignore[misc]

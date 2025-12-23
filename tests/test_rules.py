@@ -26,7 +26,7 @@ def test_every_code_in_the_book_resolves() -> None:
         assert clause(code).code == code
 
 
-def test_codes_are_unique() -> None:
+def test_no_clause_code_appears_twice_in_the_book() -> None:
     codes = clause_codes()
     assert len(codes) == len(set(codes))
 

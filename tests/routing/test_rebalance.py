@@ -77,7 +77,7 @@ def test_an_amount_of_nothing_is_refused() -> None:
         quote_route(TRX, dec("0"), TERMS)
 
 
-def test_negative_carry_is_refused() -> None:
+def test_a_negative_carry_rate_is_refused() -> None:
     with pytest.raises(BadArgument) as caught:
         quote_route(TRX, dec("100"), CarryTerms(dec("-1"), 10))
     assert caught.value.field == "carry_bps_per_hour"

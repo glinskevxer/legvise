@@ -90,7 +90,7 @@ def test_a_leg_overfilled_still_reads_as_filled() -> None:
     assert a_result(a_fill("100", "3")).outcome is LegOutcome.FILLED
 
 
-def test_several_fills_add_up() -> None:
+def test_several_fills_on_a_leg_add_up() -> None:
     result = a_result(a_fill("100", "1"), a_fill("102", "1"))
     assert result.filled_size == dec("2")
     assert result.filled_notional == dec("202")

@@ -66,7 +66,7 @@ def charge(pricer: StoreRebalancePricer, excess: str) -> object:
     )
 
 
-def test_no_excess_costs_nothing(pricer: StoreRebalancePricer) -> None:
+def test_an_excess_of_nothing_costs_nothing(pricer: StoreRebalancePricer) -> None:
     assert charge(pricer, "0") == dec("0")
 
 
@@ -112,11 +112,13 @@ def test_the_chosen_route_can_be_named(
     assert pricer.route_for("BTC", "kraken", "okx", dec("1")) == "LIGHTNING"
 
 
-def test_no_route_names_nothing(pricer: StoreRebalancePricer) -> None:
+def test_with_no_open_route_the_pricer_names_nothing(pricer: StoreRebalancePricer) -> None:
     assert pricer.route_for("BTC", "kraken", "okx", dec("1")) is None
 
 
-def test_no_excess_names_nothing(pricer: StoreRebalancePricer, networks: NetworkStore) -> None:
+def test_with_no_excess_the_pricer_names_nothing(
+    pricer: StoreRebalancePricer, networks: NetworkStore
+) -> None:
     open_route(networks, "LIGHTNING")
     assert pricer.route_for("BTC", "kraken", "okx", dec("0")) is None
 

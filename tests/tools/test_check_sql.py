@@ -30,7 +30,7 @@ def test_the_store_layer_is_where_sql_lives() -> None:
     assert SQL_LAYERS == ("legvise.store",)
 
 
-def test_a_statement_is_recognised() -> None:
+def test_a_statement_in_the_code_is_recognised() -> None:
     source = a_source('X = "SELECT code FROM venue"\n')
     assert source.module.startswith(SQL_LAYERS)
     assert statements_in(source) == ("SELECT code FROM venue",)

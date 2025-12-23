@@ -51,7 +51,7 @@ def test_every_migration_has_a_name_worth_reading() -> None:
         assert step.name == step.name.lower()
 
 
-def test_every_migration_does_something() -> None:
+def test_every_migration_carries_at_least_one_statement() -> None:
     for step in MIGRATIONS:
         assert step.statements
 

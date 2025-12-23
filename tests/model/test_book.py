@@ -123,7 +123,7 @@ def test_a_side_knows_its_opposite() -> None:
     assert Side.BID.takes is Side.ASK
 
 
-def test_a_book_is_immutable() -> None:
+def test_a_book_cannot_be_changed_after_it_is_built() -> None:
     book = a_book()
     with pytest.raises(AttributeError):
         book.sequence = 4  # type: ignore[misc]

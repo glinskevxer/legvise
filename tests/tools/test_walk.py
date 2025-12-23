@@ -74,7 +74,7 @@ def test_a_module_with_no_package_imports_reports_none() -> None:
     assert a_source("import json\n").imports() == ()
 
 
-def test_definitions_include_nested_ones() -> None:
+def test_the_definitions_include_the_nested_ones() -> None:
     source = a_source("class A:\n    def b(self) -> None:\n        pass\n")
     assert {node.name for node in source.definitions()} == {"A", "b"}
 
@@ -84,7 +84,7 @@ def test_the_module_docstring_is_readable() -> None:
     assert a_source("x = 1\n").docstring() is None
 
 
-def test_string_constants_are_collected() -> None:
+def test_every_string_constant_is_collected() -> None:
     source = a_source('x = "one"\ny = "two"\n')
     assert set(source.string_constants()) == {"one", "two"}
 

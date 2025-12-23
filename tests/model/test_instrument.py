@@ -51,7 +51,7 @@ def test_an_empty_venue_spelling_is_refused() -> None:
     assert caught.value.field == "venue_symbol"
 
 
-def test_filters_arrive_as_decimals() -> None:
+def test_the_venue_filters_arrive_as_decimals() -> None:
     made = an_instrument()
     assert made.tick_size == Decimal("0.1")
     assert made.lot_step == Decimal("0.00001")
@@ -76,7 +76,7 @@ def test_the_maximum_notional_has_to_sit_above_the_minimum() -> None:
     assert caught.value.field == "max_notional"
 
 
-def test_an_instrument_is_immutable() -> None:
+def test_an_instrument_cannot_be_changed_after_it_is_built() -> None:
     made = an_instrument()
     with pytest.raises(AttributeError):
         made.tick_size = Decimal("1")  # type: ignore[misc]

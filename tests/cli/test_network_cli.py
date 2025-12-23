@@ -81,13 +81,13 @@ def test_a_network_with_no_confirmations_is_refused(seeded: Run) -> None:
     )
 
 
-def test_listing_networks_shows_both(wired: Run) -> None:
+def test_listing_the_networks_shows_both_of_them(wired: Run) -> None:
     output = wired("network", "list", "USDT").output
     assert "TRX" in output
     assert "ERC20" in output
 
 
-def test_support_reports_both_directions(wired: Run) -> None:
+def test_support_reports_both_directions_of_the_route(wired: Run) -> None:
     result = wired("network", "support", "kraken", "USDT", "TRX")
     assert "deposit on" in result.output
     assert "withdraw on" in result.output
@@ -102,7 +102,7 @@ def test_support_for_a_network_nobody_declared_is_refused(wired: Run) -> None:
     wired("network", "support", "kraken", "USDT", "SOLANA", expect=1)
 
 
-def test_no_route_says_so(wired: Run) -> None:
+def test_no_open_route_says_so_rather_than_failing(wired: Run) -> None:
     result = wired("network", "routes", "USDT", "kraken", "okx")
     assert "no open route" in result.output
 
@@ -166,7 +166,7 @@ def test_the_cost_command_charges_the_stranding_rate_with_no_route(wired: Run) -
     assert output.strip().startswith("300")
 
 
-def test_no_excess_costs_nothing(wired: Run) -> None:
+def test_an_excess_of_nothing_costs_nothing(wired: Run) -> None:
     output = wired(
         "network",
         "cost",

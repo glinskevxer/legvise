@@ -36,7 +36,7 @@ def test_a_decimal_is_stored_as_its_exact_text(db: Database) -> None:
     assert db.scalar("SELECT v FROM t WHERE k = 'a'") == "0.00000001"
 
 
-def test_a_committed_block_survives(db: Database) -> None:
+def test_a_committed_block_survives_the_transaction(db: Database) -> None:
     with db.tx():
         db.execute("INSERT INTO t VALUES ('a', '1')")
     assert db.scalar("SELECT v FROM t WHERE k = 'a'") == "1"

@@ -45,7 +45,7 @@ def test_both_touches_come_back_together() -> None:
     assert sides.spread == dec("1")
 
 
-def test_the_mid_sits_halfway() -> None:
+def test_the_mid_sits_halfway_between_the_touches() -> None:
     assert mid(book("kraken", "100", "101")) == dec("100.5")
 
 

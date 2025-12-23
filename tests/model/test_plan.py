@@ -81,7 +81,7 @@ def test_a_leg_touches_at_least_one_level() -> None:
         a_leg(levels_swept=0)
 
 
-def test_negative_slippage_is_refused() -> None:
+def test_a_negative_slippage_figure_is_refused() -> None:
     with pytest.raises(BadArgument):
         a_leg(slippage_bps=dec("-1"))
 
@@ -128,7 +128,7 @@ def test_a_plan_that_was_not_refused_may_not_carry_a_clause() -> None:
         a_plan(clause="EDGE.01")
 
 
-def test_a_refused_plan_with_a_clause_is_fine() -> None:
+def test_a_refused_plan_that_names_a_clause_is_accepted() -> None:
     plan = a_plan(status=PlanStatus.REFUSED, clause="EDGE.01")
     assert plan.clause == "EDGE.01"
 

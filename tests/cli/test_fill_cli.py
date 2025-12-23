@@ -93,7 +93,7 @@ def test_attribution_on_an_unfilled_plan_realises_nothing(planned: tuple[Run, st
     assert "realised     0.00 bps" in output
 
 
-def test_attribution_reports_price_drift(planned: tuple[Run, str]) -> None:
+def test_attribution_reports_the_price_drift_it_measured(planned: tuple[Run, str]) -> None:
     desk, ref = planned
     desk("fill", "record", ref, "0", "t1", "--price", "100.5", "--size", "2")
     desk("fill", "record", ref, "1", "t2", "--price", "101", "--size", "2")

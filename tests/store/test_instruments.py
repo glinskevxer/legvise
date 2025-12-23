@@ -38,7 +38,7 @@ def test_an_instrument_survives_a_round_trip(store: InstrumentStore) -> None:
     assert store.get("kraken", "BTC-USD") == given
 
 
-def test_a_symbol_object_works_as_a_key_too(store: InstrumentStore) -> None:
+def test_a_symbol_object_serves_as_a_lookup_key_too(store: InstrumentStore) -> None:
     store.add(an_instrument("kraken", "BTC-USD"))
     assert store.get("kraken", Symbol("BTC", "USD")).venue == "kraken"
 
@@ -127,7 +127,7 @@ def test_shared_symbols_takes_a_higher_bar_when_asked(store: InstrumentStore) ->
     assert store.shared_symbols(minimum_venues=3) == (Symbol("BTC", "USD"),)
 
 
-def test_saving_overwrites_the_filters(store: InstrumentStore) -> None:
+def test_saving_overwrites_the_venue_filters(store: InstrumentStore) -> None:
     store.add(an_instrument("kraken", "BTC-USD"))
     store.save(an_instrument("kraken", "BTC-USD", tick_size="0.5", active=False))
     read = store.get("kraken", "BTC-USD")

@@ -54,7 +54,7 @@ def test_a_negative_balance_is_refused(field: str) -> None:
     assert caught.value.field == field
 
 
-def test_locked_defaults_to_nothing() -> None:
+def test_a_locked_balance_defaults_to_nothing() -> None:
     assert Position.build("kraken", "BTC", free="1", as_of=AS_OF).locked == dec("0")
 
 

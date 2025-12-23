@@ -126,7 +126,7 @@ def test_csv_with_no_rows_still_writes_the_header() -> None:
     assert handle.getvalue().strip() == ",".join(PLAN_FIELDS)
 
 
-def test_session_json_round_trips() -> None:
+def test_the_session_json_reads_back_as_it_was_written() -> None:
     handle = io.StringIO()
     payload = write_session_json(handle, a_summary())
     assert json.loads(handle.getvalue()) == payload

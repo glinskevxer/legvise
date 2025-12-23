@@ -15,7 +15,7 @@ def test_no_test_module_is_stranded() -> None:
     assert stranded() == ()
 
 
-def test_the_check_is_clean() -> None:
+def test_the_check_reports_nothing_on_this_package() -> None:
     assert problems() == []
 
 

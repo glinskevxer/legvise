@@ -134,7 +134,7 @@ def test_the_venues_are_listed_once_each_in_order(store: PlanStore) -> None:
     assert summarise(store, SESSION).venues == ("kraken", "okx")
 
 
-def test_the_markets_are_listed(store: PlanStore) -> None:
+def test_the_markets_a_session_saw_are_listed(store: PlanStore) -> None:
     store.add(a_plan(0), session_ref=SESSION)
     assert summarise(store, SESSION).symbols == (SYMBOL,)
 

@@ -81,7 +81,7 @@ def test_the_same_venue_trade_id_twice_is_a_conflict(store: FillStore) -> None:
         store.add(a_fill(0, "100", "1"), venue_trade_id="t1")
 
 
-def test_the_same_id_on_two_venues_is_fine(store: FillStore) -> None:
+def test_the_same_trade_id_on_two_venues_is_accepted(store: FillStore) -> None:
     store.add(a_fill(0, "100", "1"), venue_trade_id="t1")
     store.add(a_fill(1, "101", "1"), venue_trade_id="t1")
     assert len(store.for_plan(REF)) == 2

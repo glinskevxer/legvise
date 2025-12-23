@@ -81,7 +81,7 @@ def test_showing_by_venue_and_asset_at_once_is_a_usage_error(held: Run) -> None:
     assert "not both" in result.output
 
 
-def test_room_prints_both_directions(held: Run) -> None:
+def test_room_prints_both_directions_of_the_band(held: Run) -> None:
     output = held("inventory", "room", "kraken", "BTC").output
     assert "spendable   4" in output
     assert "receivable  4" in output

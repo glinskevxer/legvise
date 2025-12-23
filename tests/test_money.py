@@ -45,7 +45,7 @@ def test_a_bool_is_not_a_quantity() -> None:
 
 
 @pytest.mark.parametrize("text", ["", "abc", "1.2.3", "--4"])
-def test_junk_text_is_refused(text: str) -> None:
+def test_text_that_is_not_a_number_is_refused(text: str) -> None:
     with pytest.raises(BadArgument):
         dec(text)
 

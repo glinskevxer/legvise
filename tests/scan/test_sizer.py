@@ -146,7 +146,7 @@ def test_every_limit_is_reported_even_when_it_did_not_bind() -> None:
     assert names == {"wanted", "depth", "floor", "ceiling"}
 
 
-def test_sizing_nothing_is_refused() -> None:
+def test_sizing_a_leg_of_nothing_is_refused() -> None:
     with pytest.raises(BadArgument):
         size(wanted=dec("0"))
 

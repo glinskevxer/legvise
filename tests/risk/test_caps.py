@@ -29,7 +29,7 @@ def test_room_is_what_is_left_under_each_cap() -> None:
     assert made.gross_room == dec("600000")
 
 
-def test_room_never_reads_negative() -> None:
+def test_the_room_under_a_cap_never_reads_negative() -> None:
     assert caps(venue_used=dec("300000")).venue_room == dec("0")
 
 
