@@ -39,7 +39,7 @@ def test_no_name_ends_in_a_number() -> None:
         assert not name[-1].isdigit(), name
 
 
-def named_tests_are_unique_within_a_module() -> None:
+def test_no_name_is_used_twice_in_one_module() -> None:
     seen: set[tuple[str, str]] = set()
     for module, name in named_tests():
         assert (module, name) not in seen, f"{module}.{name}"
