@@ -25,6 +25,52 @@ jobs:
       - run: python -m ruff format --check .
       - run: python -m mypy
 
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e ".[dev]" -c constraints.txt
+      - run: python -m legvise.tools.check_docstrings
+      - run: python -m legvise.tools.check_layers
+      - run: python -m legvise.tools.check_wiring
+      - run: python -m legvise.tools.check_tests
+      - run: python -m legvise.tools.check_cli
+      - run: python -m legvise.tools.check_sql
+      - run: python -m legvise.tools.check_indexes
+      - run: python -m legvise.tools.check_migrations
+      - run: python -m legvise.tools.check_naming
+      - run: python -m legvise.tools.check_rules
+      - run: python -m legvise.tools.check_errors
+      - run: python -m legvise.tools.check_package
+      - run: python -m legvise.tools.check_readme
+
+  generated:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e ".[dev]" -c constraints.txt
+      - run: python -m legvise.tools.schema_dump --check
+      - run: python -m legvise.tools.build_rules --check
+      - run: python -m legvise.tools.build_glossary --check
+      - name: fail if regenerating changes anything
+        run: |
+          python -m legvise.tools.schema_dump
+          python -m legvise.tools.build_rules
+          python -m legvise.tools.build_glossary
+          git diff --exit-code docs/
+
   tests:
     runs-on: ubuntu-latest
     strategy:
@@ -41,6 +87,20 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e ".[dev]" -c constraints.txt
       - run: python -m pytest -q
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e ".[dev]" -c constraints.txt
+      - run: python -m pytest -q --cov --cov-report=term-missing --cov-fail-under=90
+      - run: python -m legvise.tools.smoke
 
   packaging:
     runs-on: ubuntu-latest
@@ -63,3 +123,17 @@ jobs:
           /tmp/fresh/bin/legvise --db /tmp/ci.sqlite3 venue add kraken Kraken \
             --staleness-ms 750 --depth-bps 35 --cap 250000
           /tmp/fresh/bin/legvise --db /tmp/ci.sqlite3 venue list
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [lint, checks, generated, tests, coverage, packaging]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e ".[dev]" -c constraints.txt
+      - run: python -m legvise.tools.release_check --verbose

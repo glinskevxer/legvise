@@ -24,7 +24,14 @@ run() {
 run ruff-check "$PY" -m ruff check .
 run ruff-format "$PY" -m ruff format --check .
 run mypy "$PY" -m mypy
+for name in $(ls src/legvise/tools/check_*.py | xargs -n1 basename | sed "s/\.py$//"); do
+  run "$name" "$PY" -m "legvise.tools.$name"
+done
+for name in schema_dump build_rules build_glossary; do
+  run "$name" "$PY" -m "legvise.tools.$name" --check
+done
 run pytest "$PY" -m pytest -q
+run smoke "$PY" -m legvise.tools.smoke --quiet
 
 if [ "${#failed[@]}" -gt 0 ]; then
   echo

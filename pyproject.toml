@@ -40,9 +40,19 @@ strict = true
 warn_unreachable = true
 files = ["src", "tests"]
 
+[tool.coverage.run]
+branch = true
+source = ["src/legvise"]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+exclude_lines = ["pragma: no cover", "if __name__ == .__main__.:"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 filterwarnings = ["error"]
+addopts = "--strict-markers --strict-config"
 
 [tool.ruff.lint.per-file-ignores]
 # The names read as sentences where they are raised: `raise NotFound("venue", k)`
