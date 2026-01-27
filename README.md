@@ -96,6 +96,18 @@ legvise scan run --min-edge-bps 3 --size 0.5
 legvise plan list S20250801.0000
 ```
 
+## Looking after the file
+
+```
+legvise db status
+legvise db tables
+legvise db applied
+legvise db vacuum
+```
+
+`book_level` is the table that grows without bound. `legvise book prune` takes
+the old snapshots out and `legvise db vacuum` gives the space back.
+
 ## Reading what happened
 
 ```

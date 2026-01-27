@@ -17,6 +17,7 @@ def test_every_group_the_desk_uses_is_registered() -> None:
     groups = set(registered_groups())
     assert groups == {
         "book",
+        "db",
         "fee",
         "fill",
         "instrument",
