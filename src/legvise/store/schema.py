@@ -234,6 +234,27 @@ _M0007 = Migration(
     ),
 )
 
+_M0008 = Migration(
+    version=8,
+    name="the decision ledger",
+    statements=(
+        """
+        CREATE TABLE decision (
+            session_ref TEXT NOT NULL REFERENCES scan_session (ref) ON DELETE CASCADE,
+            sequence    INTEGER NOT NULL CHECK (sequence >= 0),
+            taken_at    TEXT NOT NULL,
+            stage       TEXT NOT NULL
+                CHECK (stage IN ('loaded', 'skipped', 'screened', 'priced', 'refused')),
+            subject     TEXT NOT NULL,
+            detail      TEXT NOT NULL,
+            clause      TEXT,
+            PRIMARY KEY (session_ref, sequence)
+        )
+        """,
+        "CREATE INDEX ix_decision_stage ON decision (session_ref, stage)",
+    ),
+)
+
 MIGRATIONS: tuple[Migration, ...] = (
     _M0001,
     _M0002,
@@ -242,6 +263,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     _M0005,
     _M0006,
     _M0007,
+    _M0008,
 )
 
 

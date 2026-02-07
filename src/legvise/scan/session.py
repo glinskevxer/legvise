@@ -34,6 +34,7 @@ from legvise.fees.ladder import resolve
 from legvise.fees.quote import FeeContext
 from legvise.ids import Symbol, plan_ref, session_ref
 from legvise.market.spread import raw_cross_bps
+from legvise.model.audit import Decision, Stage
 from legvise.model.book import Book, Side
 from legvise.model.instrument import Instrument
 from legvise.model.plan import Leg, Plan, PlanKind, PlanStatus
@@ -43,6 +44,7 @@ from legvise.risk.caps import CapSet
 from legvise.scan.direct import RebalancePricer, ScanTerms, VenueView, price_cross_venue
 from legvise.store.books import BookStore
 from legvise.store.db import Database
+from legvise.store.decisions import DecisionStore
 from legvise.store.fees import FeeStore
 from legvise.store.instruments import InstrumentStore
 from legvise.store.inventory import InventoryStore
@@ -96,13 +98,16 @@ class Scanner:
             )
         symbols = InstrumentStore(self.db).shared_symbols()
         skipped: list[str] = []
+        ledger = _Ledger(ref, to_text(now))
         written = 0
         for symbol in symbols:
-            views = self._views_for(symbol, skipped)
-            for plan in self._pairs(symbol, views, ref, now, start_index=written):
+            views = self._views_for(symbol, skipped, ledger)
+            ledger.note(Stage.LOADED, str(symbol), f"{len(views)} venues have a two sided book")
+            for plan in self._pairs(symbol, views, ref, now, ledger, start_index=written):
                 with self.db.tx():
                     plans.add(plan, session_ref=ref)
                 written += 1
+        DecisionStore(self.db).add_all(ledger.taken())
         return ScanReport(
             session=ref,
             symbols_considered=len(symbols),
@@ -118,27 +123,42 @@ class Scanner:
         views: list[VenueView],
         ref: str,
         now: dt.datetime,
+        ledger: _Ledger,
         *,
         start_index: int,
     ) -> list[Plan]:
         out: list[Plan] = []
         index = start_index
         for buy, sell in permutations(views, 2):
-            if raw_cross_bps(buy.book, sell.book) <= ZERO:
+            pair = f"{buy.venue.code}/{sell.venue.code} {symbol}"
+            touch = raw_cross_bps(buy.book, sell.book)
+            if touch <= ZERO:
+                ledger.note(Stage.SCREENED, pair, f"touch edge {touch} does not cross")
                 continue
-            out.append(self._price_one(buy, sell, plan_ref(ref, index), now, symbol))
+            out.append(self._price_one(buy, sell, plan_ref(ref, index), now, symbol, ledger))
             index += 1
         return out
 
     def _price_one(
-        self, buy: VenueView, sell: VenueView, ref: str, now: dt.datetime, symbol: Symbol
+        self,
+        buy: VenueView,
+        sell: VenueView,
+        ref: str,
+        now: dt.datetime,
+        symbol: Symbol,
+        ledger: _Ledger,
     ) -> Plan:
+        pair = f"{buy.venue.code}/{sell.venue.code} {symbol}"
         try:
-            return price_cross_venue(buy, sell, self.terms, ref=ref, now=now, pricer=self.pricer)
+            plan = price_cross_venue(buy, sell, self.terms, ref=ref, now=now, pricer=self.pricer)
         except Refused as refusal:
+            clause = refusal.why.split(":", 1)[0]
+            ledger.note(Stage.REFUSED, pair, refusal.subject, clause=clause)
             return _refused(ref, symbol, refusal, buy, sell)
+        ledger.note(Stage.PRICED, pair, f"{plan.ref} nets {plan.net_bps}")
+        return plan
 
-    def _views_for(self, symbol: Symbol, skipped: list[str]) -> list[VenueView]:
+    def _views_for(self, symbol: Symbol, skipped: list[str], ledger: _Ledger) -> list[VenueView]:
         venues = VenueStore(self.db)
         instruments = InstrumentStore(self.db)
         books = BookStore(self.db)
@@ -149,12 +169,15 @@ class Scanner:
                 continue
             book = books.latest(listing.venue, symbol)
             if book is None or not book.is_two_sided():
-                skipped.append(f"{listing.venue}:{symbol} has no two sided book")
+                note = f"{listing.venue}:{symbol} has no two sided book"
+                skipped.append(note)
+                ledger.note(Stage.SKIPPED, f"{listing.venue} {symbol}", "no two sided book")
                 continue
             try:
                 out.append(self._build_view(venue, listing, book))
             except LegviseError as gap:
                 skipped.append(f"{listing.venue}:{symbol} {gap.message}")
+                ledger.note(Stage.SKIPPED, f"{listing.venue} {symbol}", gap.message)
         return out
 
     def _build_view(self, venue: Venue, listing: Instrument, book: Book) -> VenueView:
@@ -176,6 +199,41 @@ class Scanner:
             quote_band=inventory.require_band(venue.code, listing.quote),
             caps=self.caps,
         )
+
+
+class _Ledger:
+    """Collects decisions during a scan so they can be written in one batch.
+
+    Written at the end rather than as they happen. A scan is read mostly and a
+    write per decision would turn a few hundred reads into a few hundred
+    transactions, which is the difference between finishing inside the pairing
+    window and not.
+    """
+
+    __slots__ = ("_at", "_session", "_taken")
+
+    def __init__(self, session_ref: str, at: str) -> None:
+        self._session = session_ref
+        self._at = at
+        self._taken: list[Decision] = []
+
+    def note(self, stage: Stage, subject: str, detail: str, *, clause: str | None = None) -> None:
+        """Record one decision."""
+        self._taken.append(
+            Decision.build(
+                self._session,
+                len(self._taken),
+                at=self._at,
+                stage=stage,
+                subject=subject,
+                detail=detail,
+                clause=clause,
+            )
+        )
+
+    def taken(self) -> tuple[Decision, ...]:
+        """Everything recorded, in order."""
+        return tuple(self._taken)
 
 
 def _stub_leg(view: VenueView, takes: Side) -> Leg:

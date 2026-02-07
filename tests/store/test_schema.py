@@ -14,6 +14,7 @@ EXPECTED_TABLES = (
     "applied_migration",
     "book_level",
     "book_snapshot",
+    "decision",
     "fee_tier",
     "fill",
     "instrument",
