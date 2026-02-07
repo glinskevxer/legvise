@@ -16,6 +16,7 @@ def test_the_tree_is_complete_and_documented() -> None:
 def test_every_group_the_desk_uses_is_registered() -> None:
     groups = set(registered_groups())
     assert groups == {
+        "audit",
         "book",
         "db",
         "fee",

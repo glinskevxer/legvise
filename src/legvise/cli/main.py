@@ -13,6 +13,7 @@ import click
 
 from legvise import __version__
 from legvise.cli import (
+    audit,
     book,
     db,
     fee,
@@ -55,6 +56,7 @@ def _close(obj: Context) -> None:
     obj.db.close()
 
 
+cli.add_command(audit.group)
 cli.add_command(book.group)
 cli.add_command(db.group)
 cli.add_command(fee.group)

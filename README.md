@@ -115,6 +115,15 @@ legvise report session S20250801.0000
 legvise scan refusals
 ```
 
+The decision ledger holds what never became a plan at all:
+
+```
+legvise audit stages S20250801.0000
+legvise audit session S20250801.0000 --stage screened
+legvise audit shape S20250801.0000
+legvise audit clauses S20250801.0000
+```
+
 The refusal counts are the useful half. Three EDGE.01 refusals means the market
 was quiet; three CAP.01 refusals means the desk was at its own limit and the
 market had nothing to do with it, and a plan count cannot tell those apart.
