@@ -57,7 +57,7 @@ one fired and act on the answer.
 | clause | says | raised in |
 | --- | --- | --- |
 | `CAP.01` | a plan may not push a venue over its notional cap | `risk.caps` |
-| `CAP.02` | a plan may not push an asset over its net exposure cap | `risk.caps` |
+| `CAP.02` | a plan may not push an asset over its net exposure cap | `risk.caps`, `risk.concentration` |
 | `CAP.03` | the desk gross cap is a hard stop, not a downsize | `risk.caps` |
 
 ## EDGE

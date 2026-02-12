@@ -104,3 +104,86 @@ def test_clearing_a_band_takes_it_off_the_listing(held: Run) -> None:
 
 def test_clearing_a_band_that_is_not_there_fails(held: Run) -> None:
     held("inventory", "clear-band", "okx", "BTC", expect=1)
+
+
+def loose(run: Run, *extra: str) -> str:
+    """The concentration command with limits the fixture does not trip.
+
+    The venue share is one because the fixture holds all its cash on kraken,
+    which is a real hundred percent rather than a rounding artefact.
+    """
+    return run(
+        "inventory",
+        "concentration",
+        "--mark",
+        "BTC:100000",
+        "--mark",
+        "USD:1",
+        "--max-asset-share",
+        "0.9",
+        "--max-venue-share",
+        "1",
+        *extra,
+    ).output
+
+
+def test_the_concentration_command_values_the_desk(held: Run) -> None:
+    assert "desk value  1100000" in loose(held)
+
+
+def test_the_concentration_command_reports_a_share_per_asset(held: Run) -> None:
+    output = loose(held)
+    assert "BTC" in output
+    assert "USD" in output
+
+
+def test_the_concentration_command_names_the_venues_holding_an_asset(held: Run) -> None:
+    output = loose(held)
+    assert "kraken=" in output
+    assert "okx=" in output
+
+
+def test_a_desk_inside_both_limits_says_so(held: Run) -> None:
+    assert "inside both concentration limits" in loose(held)
+
+
+def test_a_desk_too_heavy_in_one_asset_fails_the_command(held: Run) -> None:
+    result = held(
+        "inventory",
+        "concentration",
+        "--mark",
+        "BTC:100000",
+        "--mark",
+        "USD:1",
+        "--max-asset-share",
+        "0.3",
+        expect=1,
+    )
+    assert "CAP.02" in result.output
+
+
+def test_a_desk_with_all_of_one_asset_in_one_place_fails_the_command(held: Run) -> None:
+    result = held(
+        "inventory",
+        "concentration",
+        "--mark",
+        "BTC:100000",
+        "--mark",
+        "USD:1",
+        "--max-asset-share",
+        "0.9",
+        "--max-venue-share",
+        "0.8",
+        expect=1,
+    )
+    assert "on kraken" in result.output
+
+
+def test_a_mark_that_is_not_a_pair_is_a_usage_error(held: Run) -> None:
+    result = held("inventory", "concentration", "--mark", "BTC", expect=2)
+    assert "ASSET:PRICE" in result.output
+
+
+def test_a_held_asset_with_no_mark_fails_the_command(held: Run) -> None:
+    result = held("inventory", "concentration", "--mark", "BTC:100000", expect=1)
+    assert "USD" in result.output

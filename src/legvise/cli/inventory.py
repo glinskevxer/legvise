@@ -2,11 +2,21 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 import click
 
-from legvise.cli.options import app, echo_rows
+from legvise.cli.options import app, bps_text, echo_rows
+from legvise.ids import asset_code
 from legvise.model.inventory import Band, Position
+from legvise.money import dec
 from legvise.risk.bands import room_for
+from legvise.risk.concentration import (
+    Concentration,
+    ConcentrationLimits,
+    measure,
+    require_within,
+)
 from legvise.store.inventory import InventoryStore
 
 __all__ = ["group"]
@@ -125,3 +135,73 @@ def clear_band(ctx: click.Context, venue: str, asset: str) -> None:
         InventoryStore(context.db).remove_band(venue, asset)
     if not context.quiet:
         click.echo(f"{venue} {asset} has no band")
+
+
+@group.command("concentration")
+@click.option(
+    "--mark",
+    "marks",
+    multiple=True,
+    required=True,
+    help="What one unit of an asset is worth, as ASSET:PRICE.",
+)
+@click.option(
+    "--max-asset-share",
+    default="0.6",
+    show_default=True,
+    help="Most of the desk one asset may be.",
+)
+@click.option(
+    "--max-venue-share",
+    default="0.8",
+    show_default=True,
+    help="Most of one asset that may sit on one venue.",
+)
+@click.pass_context
+def concentration(
+    ctx: click.Context, marks: tuple[str, ...], max_asset_share: str, max_venue_share: str
+) -> None:
+    """Print how much of the desk is in one asset, and how much on one venue."""
+    context = app(ctx)
+    store = InventoryStore(context.db)
+    positions = tuple(p for asset in store.assets_held() for p in store.positions_of(asset))
+    priced = measure(positions, _marks(marks))
+    click.echo(f"desk value  {priced.total_value}")
+    rows = [
+        (
+            asset,
+            str(priced.by_asset[asset]),
+            bps_text(priced.asset_share(asset), "0.0001"),
+            _venue_spread(priced, asset),
+        )
+        for asset in sorted(priced.by_asset)
+    ]
+    echo_rows(rows, ("asset", "value", "desk_share", "venues"))
+    limits = ConcentrationLimits(
+        most_of_desk_in_one_asset=dec(max_asset_share, field="max_asset_share"),
+        most_of_an_asset_on_one_venue=dec(max_venue_share, field="max_venue_share"),
+    )
+    require_within(priced, limits)
+    if not context.quiet:
+        click.echo("inside both concentration limits")
+
+
+def _marks(given: tuple[str, ...]) -> dict[str, Decimal]:
+    found: dict[str, Decimal] = {}
+    for entry in given:
+        parts = entry.split(":")
+        if len(parts) != 2:
+            raise click.BadParameter(f"expected ASSET:PRICE, got {entry!r}")
+        found[asset_code(parts[0])] = dec(parts[1], field="mark")
+    return found
+
+
+def _venue_spread(priced: Concentration, asset: str) -> str:
+    """Each venue holding an asset and its share of it, biggest first."""
+    venues = sorted(
+        (venue for held, venue in priced.by_asset_venue if held == asset),
+        key=lambda venue: (-priced.venue_share(asset, venue), venue),
+    )
+    return " ".join(
+        f"{venue}={bps_text(priced.venue_share(asset, venue), '0.01')}" for venue in venues
+    )
