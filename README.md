@@ -76,6 +76,7 @@ legvise inventory set-balance kraken BTC 5
 legvise inventory set-band kraken BTC --floor 1 --target 5 --ceiling 9
 legvise inventory show
 legvise inventory room kraken BTC
+legvise inventory concentration --mark BTC:100000 --mark USD:1
 ```
 
 Declare how inventory moves back, and which venues will use each network:
@@ -92,6 +93,7 @@ Feed in books and scan:
 ```
 legvise book load kraken BTC-USD --bid 99.00:2 --ask 100.00:1
 legvise book touch BTC-USD
+legvise book imbalance kraken BTC-USD
 legvise scan run --min-edge-bps 3 --size 0.5
 legvise plan list S20250801.0000
 ```

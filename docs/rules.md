@@ -11,7 +11,7 @@ one fired and act on the answer.
 | clause | says | raised in |
 | --- | --- | --- |
 | `BOOK.01` | a side of a book has to be sorted away from the touch | `model.book` |
-| `BOOK.02` | a book with no level on one side cannot be crossed | `market.spread`, `model.book`, `scan.loop` |
+| `BOOK.02` | a book with no level on one side cannot be crossed | `market.imbalance`, `market.spread`, `model.book`, `scan.loop` |
 | `BOOK.03` | a level has to carry a positive price and a positive size | `model.book` |
 | `BOOK.04` | the bid may not sit at or above the ask on the same venue | `model.book` |
 

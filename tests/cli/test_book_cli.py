@@ -142,3 +142,28 @@ def test_a_standard_input_line_that_is_not_three_parts_is_a_usage_error(
         catch_exceptions=False,
     )
     assert result.exit_code == 2
+
+
+def test_the_imbalance_command_prints_both_measures(loaded: Run) -> None:
+    output = loaded("book", "imbalance", "kraken", "BTC-USD").output
+    assert "touch" in output
+    assert "depth" in output
+
+
+def test_the_imbalance_command_says_which_way_the_book_leans(loaded: Run) -> None:
+    output = loaded("book", "imbalance", "kraken", "BTC-USD", "--depth-bps", "500").output
+    assert "leans   bid" in output or "leans   ask" in output
+
+
+def test_the_imbalance_command_reports_how_far_apart_the_measures_are(loaded: Run) -> None:
+    assert "apart" in loaded("book", "imbalance", "kraken", "BTC-USD").output
+
+
+def test_the_imbalance_command_needs_a_book_on_file(seeded: Run) -> None:
+    seeded("book", "imbalance", "kraken", "BTC-USD", expect=1)
+
+
+def test_a_one_sided_book_has_no_imbalance_to_print(seeded: Run) -> None:
+    seeded("book", "load", "kraken", "BTC-USD", "--bid", "99:1")
+    result = seeded("book", "imbalance", "kraken", "BTC-USD", expect=1)
+    assert "BOOK.02" in result.output

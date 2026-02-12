@@ -14,8 +14,10 @@ import click
 
 from legvise.cli.options import app, bps_text, echo_rows
 from legvise.clock import parse_instant
+from legvise.market.imbalance import disagreement, imbalance_at, leans_toward
 from legvise.market.spread import mid, spread_bps
 from legvise.model.book import Book, Side
+from legvise.money import dec
 from legvise.store.books import BookStore
 
 __all__ = ["group"]
@@ -162,3 +164,26 @@ def levels(ctx: click.Context, venue: str, symbol: str, side: str) -> None:
     book = BookStore(context.db).require_latest(venue, symbol)
     for level in book.side(Side(side)):
         click.echo(f"{level.price}:{level.size}")
+
+
+@group.command("imbalance")
+@click.argument("venue")
+@click.argument("symbol")
+@click.option("--depth-bps", default="50", show_default=True, help="Band the depth is read over.")
+@click.pass_context
+def imbalance(ctx: click.Context, venue: str, symbol: str, depth_bps: str) -> None:
+    """Print which way the newest book leans, at the touch and deeper.
+
+    The two disagreeing is the interesting case. It usually means somebody is
+    working a large order, and it is a reason to size smaller rather than a
+    reason to trade.
+    """
+    context = app(ctx)
+    book = BookStore(context.db).require_latest(venue, symbol)
+    limit = dec(depth_bps, field="depth_bps")
+    touch, depth = imbalance_at(book, limit)
+    click.echo(f"touch   {bps_text(touch.ratio, '0.0001')}  {touch.bid_size} / {touch.ask_size}")
+    click.echo(f"depth   {bps_text(depth.ratio, '0.0001')}  {depth.bid_size} / {depth.ask_size}")
+    click.echo(f"apart   {bps_text(disagreement(book, limit), '0.0001')}")
+    side = leans_toward(book, limit)
+    click.echo(f"leans   {side.value if side else 'neither, the two measures disagree'}")
