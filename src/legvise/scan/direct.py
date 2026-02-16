@@ -25,9 +25,10 @@ from decimal import Decimal
 from typing import Protocol
 
 from legvise.fees.quote import FeeContext, charge_for
-from legvise.market.depth import Sweep, slippage_bps, walk
+from legvise.market.depth import slippage_bps, walk
 from legvise.market.spread import raw_cross_bps
 from legvise.market.staleness import check_pairing, require_fresh
+from legvise.market.sweep import Sweep
 from legvise.model.book import Book, Side
 from legvise.model.instrument import Instrument
 from legvise.model.inventory import Band, Position

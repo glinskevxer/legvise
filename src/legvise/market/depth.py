@@ -9,6 +9,9 @@ So every price in this package comes from a sweep. `walk` fills a target size
 level by level and reports what it actually cost; `reachable` answers the
 opposite question, which is how much size sits inside a price limit.
 
+The `Sweep` a walk returns lives in `market.sweep`, so a module that only wants
+to name the type does not have to import the walking.
+
 Both refuse to invent liquidity. A walk that runs out of book comes back
 incomplete rather than extrapolating the last level, and the caller decides
 whether a partial fill is worth having.
@@ -17,48 +20,14 @@ whether a partial fill is worth having.
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import NamedTuple
 
 from legvise.errors import BadArgument
-from legvise.model.book import Book, Level, Side
+from legvise.market.sweep import Sweep, consume, empty_sweep
+from legvise.model.book import Book, Side
 from legvise.money import ZERO, apply_bps, bps_between
 from legvise.rules import refuse
 
-__all__ = ["Sweep", "reachable", "sweep_cost", "walk"]
-
-
-class Sweep(NamedTuple):
-    """What a walk through the book actually got."""
-
-    side: Side
-    size: Decimal
-    notional: Decimal
-    levels: int
-    worst_price: Decimal
-    complete: bool
-
-    @property
-    def vwap(self) -> Decimal:
-        """The average price paid across the whole sweep."""
-        if self.size == ZERO:
-            raise BadArgument("size", "0", "an empty sweep has no average price")
-        return self.notional / self.size
-
-    @property
-    def is_empty(self) -> bool:
-        """True when the walk got nothing at all."""
-        return self.size == ZERO
-
-
-def _empty(side: Side) -> Sweep:
-    return Sweep(
-        side=side,
-        size=ZERO,
-        notional=ZERO,
-        levels=0,
-        worst_price=ZERO,
-        complete=False,
-    )
+__all__ = ["reachable", "slippage_bps", "sweep_cost", "walk", "walk_for_notional"]
 
 
 def walk(book: Book, side: Side, target: Decimal) -> Sweep:
@@ -71,33 +40,8 @@ def walk(book: Book, side: Side, target: Decimal) -> Sweep:
         raise BadArgument("target", str(target), "a walk needs a positive size")
     levels = book.side(side)
     if not levels:
-        return _empty(side)
-    return _consume(levels, side, target)
-
-
-def _consume(levels: tuple[Level, ...], side: Side, target: Decimal) -> Sweep:
-    remaining = target
-    size = ZERO
-    notional = ZERO
-    touched = 0
-    worst = ZERO
-    for level in levels:
-        if remaining <= ZERO:
-            break
-        take = min(remaining, level.size)
-        size += take
-        notional += take * level.price
-        worst = level.price
-        touched += 1
-        remaining -= take
-    return Sweep(
-        side=side,
-        size=size,
-        notional=notional,
-        levels=touched,
-        worst_price=worst,
-        complete=remaining <= ZERO,
-    )
+        return empty_sweep(side)
+    return consume(levels, side, target)
 
 
 def walk_for_notional(book: Book, side: Side, budget: Decimal) -> Sweep:
@@ -113,7 +57,7 @@ def walk_for_notional(book: Book, side: Side, budget: Decimal) -> Sweep:
         raise BadArgument("budget", str(budget), "a walk needs a positive budget")
     levels = book.side(side)
     if not levels:
-        return _empty(side)
+        return empty_sweep(side)
     remaining = budget
     size = ZERO
     notional = ZERO
@@ -158,15 +102,15 @@ def reachable(book: Book, side: Side, limit_bps: Decimal) -> Sweep:
         raise BadArgument("limit_bps", str(limit_bps), "a depth limit has to be positive")
     levels = book.side(side)
     if not levels:
-        return _empty(side)
+        return empty_sweep(side)
     touch = levels[0].price
     edge = apply_bps(touch, limit_bps)
     worst_allowed = touch + edge if side is Side.ASK else touch - edge
     inside = tuple(level for level in levels if _within(level.price, worst_allowed, side))
     if not inside:
-        return _empty(side)
+        return empty_sweep(side)
     total = sum((level.size for level in inside), start=ZERO)
-    return _consume(inside, side, total)
+    return consume(inside, side, total)
 
 
 def _within(price: Decimal, worst_allowed: Decimal, side: Side) -> bool:
@@ -186,7 +130,7 @@ def sweep_cost(book: Book, side: Side, target: Decimal, limit_bps: Decimal) -> S
         if not got.complete:
             raise refuse("DEPTH.01", f"{book.venue} {book.symbol} {side.value} for {target}")
         raise refuse("DEPTH.02", f"{book.venue} {book.symbol} {side.value} for {target}")
-    return _consume(book.side(side), side, target)
+    return consume(book.side(side), side, target)
 
 
 def slippage_bps(book: Book, sweep: Sweep) -> Decimal:

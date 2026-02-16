@@ -22,7 +22,8 @@ from decimal import Decimal
 from legvise.errors import BadArgument
 from legvise.fees.quote import FeeContext, charge_for
 from legvise.ids import Symbol
-from legvise.market.depth import Sweep, walk, walk_for_notional
+from legvise.market.depth import walk, walk_for_notional
+from legvise.market.sweep import Sweep
 from legvise.model.book import Book, Side
 from legvise.model.cycle import Cycle, Hop
 from legvise.model.plan import Leg, Plan, PlanKind, PlanStatus

@@ -26,8 +26,9 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from legvise.errors import BadArgument
-from legvise.market.depth import Sweep, reachable, walk
+from legvise.market.depth import reachable, walk
 from legvise.market.normalize import conform_size, require_notional
+from legvise.market.sweep import Sweep
 from legvise.model.book import Book, Side
 from legvise.model.instrument import Instrument
 from legvise.model.inventory import Band, Position
