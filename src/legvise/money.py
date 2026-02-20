@@ -18,6 +18,8 @@ from typing import Final
 from legvise.errors import BadArgument
 
 __all__ = [
+    "BPS",
+    "ONE",
     "ZERO",
     "apply_bps",
     "bps_between",
@@ -30,7 +32,11 @@ __all__ = [
 ]
 
 ZERO: Final = Decimal("0")
-_BPS: Final = Decimal("10000")
+ONE: Final = Decimal("1")
+
+#: How many basis points make a whole. Six modules used to carry their own copy
+#: of this, which is six chances to write 1000 and not notice for a week.
+BPS: Final = Decimal("10000")
 
 
 def dec(value: str | int | Decimal, *, field: str = "value") -> Decimal:
@@ -96,7 +102,7 @@ def apply_bps(value: Decimal, bps: Decimal) -> Decimal:
 
     Returned unrounded. Whoever owes it decides the direction to round.
     """
-    return value * bps / _BPS
+    return value * bps / BPS
 
 
 def bps_between(low: Decimal, high: Decimal) -> Decimal:
@@ -107,4 +113,16 @@ def bps_between(low: Decimal, high: Decimal) -> Decimal:
     """
     if low <= ZERO:
         raise BadArgument("low", str(low), "a basis point spread needs a positive base")
-    return (high - low) / low * _BPS
+    return (high - low) / low * BPS
+
+
+def to_bps(part: Decimal, whole: Decimal, *, field: str = "whole") -> Decimal:
+    """`part` as a share of `whole`, in basis points.
+
+    The other direction from `apply_bps`, and the one every cost in this package
+    ends up wanting: a fee in dollars against a notional in dollars, expressed
+    the way the desk talks about it.
+    """
+    if whole <= ZERO:
+        raise BadArgument(field, str(whole), "a basis point share needs a positive base")
+    return part / whole * BPS

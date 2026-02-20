@@ -35,15 +35,19 @@ from legvise.model.inventory import Band, Position
 from legvise.model.leg import Leg
 from legvise.model.plan import Plan, PlanKind, PlanStatus
 from legvise.model.venue import Venue
-from legvise.money import ZERO, dec
+from legvise.money import BPS, ZERO
 from legvise.risk.bands import excess_above_ceiling
 from legvise.risk.caps import CapSet
 from legvise.rules import refuse
 from legvise.scan.sizer import size_leg
 
-__all__ = ["NoRebalanceCost", "RebalancePricer", "ScanTerms", "VenueView", "price_cross_venue"]
-
-BPS = dec("10000")
+__all__ = [
+    "NoRebalanceCost",
+    "RebalancePricer",
+    "ScanTerms",
+    "VenueView",
+    "price_cross_venue",
+]
 
 
 class RebalancePricer(Protocol):

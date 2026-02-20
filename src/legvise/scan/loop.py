@@ -28,13 +28,10 @@ from legvise.model.book import Book, Side
 from legvise.model.cycle import Cycle, Hop
 from legvise.model.leg import Leg
 from legvise.model.plan import Plan, PlanKind, PlanStatus
-from legvise.money import ZERO, dec
+from legvise.money import BPS, ZERO
 from legvise.rules import refuse
 
 __all__ = ["HopFill", "LoopQuote", "price_cycle"]
-
-ONE = dec("1")
-BPS = dec("10000")
 
 
 @dataclass(frozen=True, slots=True)

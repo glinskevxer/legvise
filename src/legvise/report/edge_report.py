@@ -20,7 +20,7 @@ from decimal import Decimal
 from legvise.errors import BadArgument
 from legvise.ledger.attribution import Attribution, attribute
 from legvise.model.plan import Plan
-from legvise.money import ZERO
+from legvise.money import BPS, ZERO
 from legvise.store.fills import FillStore
 from legvise.store.plans import PlanStore
 
@@ -90,7 +90,7 @@ class EdgeReport:
     def realised_amount(self) -> Decimal:
         """What the realised edge comes to in the quote asset."""
         return sum(
-            (line.attribution.realised_bps * line.weight / Decimal(10000) for line in self.lines),
+            (line.attribution.realised_bps * line.weight / BPS for line in self.lines),
             start=ZERO,
         )
 

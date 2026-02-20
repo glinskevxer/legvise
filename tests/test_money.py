@@ -8,6 +8,8 @@ import pytest
 
 from legvise.errors import BadArgument
 from legvise.money import (
+    BPS,
+    ONE,
     apply_bps,
     bps_between,
     dec,
@@ -16,6 +18,7 @@ from legvise.money import (
     quantize_nearest,
     quantize_up,
     step_multiple,
+    to_bps,
 )
 
 
@@ -101,3 +104,40 @@ def test_the_spread_between_two_prices_reads_in_basis_points() -> None:
 def test_a_spread_off_a_zero_base_is_refused() -> None:
     with pytest.raises(BadArgument):
         bps_between(dec("0"), dec("1"))
+
+
+def test_a_whole_is_ten_thousand_basis_points() -> None:
+    assert Decimal("10000") == BPS
+    assert Decimal("1") == ONE
+
+
+def test_a_part_of_a_whole_reads_in_basis_points() -> None:
+    assert to_bps(dec("1"), dec("10000")) == dec("1")
+    assert to_bps(dec("32"), dec("200")) == dec("1600")
+
+
+def test_the_whole_of_a_whole_is_ten_thousand_basis_points() -> None:
+    assert to_bps(dec("250"), dec("250")) == BPS
+
+
+def test_a_share_of_nothing_is_refused() -> None:
+    with pytest.raises(BadArgument) as caught:
+        to_bps(dec("1"), dec("0"))
+    assert "positive base" in caught.value.why
+
+
+def test_a_share_of_a_negative_base_is_refused() -> None:
+    with pytest.raises(BadArgument):
+        to_bps(dec("1"), dec("-5"))
+
+
+def test_the_share_names_the_field_it_was_given() -> None:
+    with pytest.raises(BadArgument) as caught:
+        to_bps(dec("1"), dec("0"), field="notional")
+    assert caught.value.field == "notional"
+
+
+def test_applying_and_measuring_basis_points_are_inverses() -> None:
+    whole = dec("12345.67")
+    part = apply_bps(whole, dec("37"))
+    assert to_bps(part, whole) == dec("37")

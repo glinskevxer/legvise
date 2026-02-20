@@ -24,12 +24,9 @@ from decimal import Decimal
 from legvise.errors import BadArgument
 from legvise.ids import Symbol, asset_code, venue_code
 from legvise.model.book import Side
-from legvise.money import ZERO, dec
+from legvise.money import BPS, ONE, ZERO
 
 __all__ = ["Cycle", "Hop"]
-
-ONE = dec("1")
-BPS = dec("10000")
 
 
 @dataclass(frozen=True, slots=True)

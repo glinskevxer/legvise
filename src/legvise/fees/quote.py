@@ -22,7 +22,7 @@ from decimal import Decimal
 from legvise.errors import BadArgument
 from legvise.fees.ladder import effective_bps
 from legvise.model.fee import FeeTier
-from legvise.money import ZERO, apply_bps, dec, quantize_down, quantize_up
+from legvise.money import ZERO, apply_bps, dec, quantize_down, quantize_up, to_bps
 from legvise.rules import refuse
 
 __all__ = ["FeeCharge", "FeeContext", "charge_for"]
@@ -121,4 +121,4 @@ def round_trip_bps(first: FeeCharge, second: FeeCharge) -> Decimal:
     if first.notional <= ZERO:
         raise BadArgument("notional", str(first.notional), "a round trip needs a notional")
     total = first.signed_quote_amount + second.signed_quote_amount
-    return total / first.notional * dec("10000")
+    return to_bps(total, first.notional, field="notional")

@@ -27,13 +27,12 @@ from typing import NamedTuple
 
 from legvise.errors import BadArgument
 from legvise.model.network import TransferNetwork
-from legvise.money import ZERO, dec
+from legvise.money import BPS, ZERO, dec
 from legvise.rules import refuse
 
 __all__ = ["CarryTerms", "RouteQuote", "amortised_bps", "cheapest_route", "quote_route"]
 
 MINUTES_PER_HOUR = dec("60")
-BPS = dec("10000")
 
 
 class CarryTerms(NamedTuple):

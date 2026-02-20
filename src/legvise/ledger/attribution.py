@@ -27,11 +27,10 @@ from legvise.errors import BadArgument
 from legvise.model.book import Side
 from legvise.model.fill import LegOutcome, LegResult
 from legvise.model.plan import Plan
-from legvise.money import ZERO, dec
+from legvise.money import BPS, ZERO, dec
 
 __all__ = ["Attribution", "attribute"]
 
-BPS = dec("10000")
 TOLERANCE = dec("0.0001")
 
 
