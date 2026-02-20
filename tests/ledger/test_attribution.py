@@ -9,7 +9,8 @@ from legvise.ids import parse_symbol
 from legvise.ledger.attribution import attribute
 from legvise.model.book import Side
 from legvise.model.fill import Fill, LegResult
-from legvise.model.plan import Leg, Plan, PlanKind, PlanStatus
+from legvise.model.leg import Leg
+from legvise.model.plan import Plan, PlanKind, PlanStatus
 from legvise.money import dec
 
 REF = "S20250924.0001/P000"

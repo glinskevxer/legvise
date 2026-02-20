@@ -6,7 +6,8 @@ import pytest
 
 from legvise.ids import parse_symbol
 from legvise.model.book import Side
-from legvise.model.plan import Leg, Plan, PlanKind, PlanStatus
+from legvise.model.leg import Leg
+from legvise.model.plan import Plan, PlanKind, PlanStatus
 from legvise.money import dec
 from legvise.report.session_report import compare, summarise
 from legvise.store.db import Database

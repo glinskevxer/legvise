@@ -26,7 +26,8 @@ from legvise.market.depth import walk, walk_for_notional
 from legvise.market.sweep import Sweep
 from legvise.model.book import Book, Side
 from legvise.model.cycle import Cycle, Hop
-from legvise.model.plan import Leg, Plan, PlanKind, PlanStatus
+from legvise.model.leg import Leg
+from legvise.model.plan import Plan, PlanKind, PlanStatus
 from legvise.money import ZERO, dec
 from legvise.rules import refuse
 

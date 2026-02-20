@@ -5,6 +5,9 @@ against. It carries every number that went into the decision, not just the
 answer, because "net edge 3.1 bps" tells nobody anything six weeks later when
 the fill came back at 0.4.
 
+The legs themselves live in `model.leg`. Everything downstream handles legs and
+only the scanner handles whole plans.
+
 The edge decomposition is fixed and it is checked, not assumed:
 
     net = gross - fees - slippage - rebalance
@@ -22,11 +25,11 @@ from decimal import Decimal
 from enum import Enum
 
 from legvise.errors import BadArgument
-from legvise.ids import Symbol, venue_code
-from legvise.model.book import Side
+from legvise.ids import Symbol
+from legvise.model.leg import Leg
 from legvise.money import ZERO
 
-__all__ = ["Leg", "Plan", "PlanKind", "PlanStatus"]
+__all__ = ["Plan", "PlanKind", "PlanStatus"]
 
 TOLERANCE_BPS = Decimal("0.0001")
 
@@ -49,53 +52,6 @@ class PlanStatus(str, Enum):
     def is_actionable(self) -> bool:
         """True when the desk could send this."""
         return self in (PlanStatus.PRICED, PlanStatus.TRIMMED)
-
-
-@dataclass(frozen=True, slots=True)
-class Leg:
-    """One order in a plan, priced against the book it was read from."""
-
-    venue: str
-    symbol: Symbol
-    takes: Side
-    price: Decimal
-    size: Decimal
-    fee_bps: Decimal
-    fee_amount: Decimal
-    levels_swept: int
-    slippage_bps: Decimal
-
-    def __post_init__(self) -> None:
-        if self.venue != venue_code(self.venue):
-            raise BadArgument("venue", self.venue, "venue codes are stored normalised")
-        if self.price <= ZERO:
-            raise BadArgument("price", str(self.price), "a leg has a positive price")
-        if self.size <= ZERO:
-            raise BadArgument("size", str(self.size), "a leg has a positive size")
-        if self.levels_swept < 1:
-            raise BadArgument("levels_swept", self.levels_swept, "a leg touches at least one level")
-        if self.slippage_bps < ZERO:
-            raise BadArgument("slippage_bps", str(self.slippage_bps), "slippage is not negative")
-
-    @property
-    def notional(self) -> Decimal:
-        """What the leg is worth in the quote asset."""
-        return self.price * self.size
-
-    @property
-    def is_buy(self) -> bool:
-        """True when this leg lifts offers."""
-        return self.takes is Side.ASK
-
-    @property
-    def base_delta(self) -> Decimal:
-        """How the base asset moves on this venue: positive when it arrives."""
-        return self.size if self.is_buy else -self.size
-
-    @property
-    def quote_delta(self) -> Decimal:
-        """How the quote asset moves on this venue: positive when it arrives."""
-        return -self.notional if self.is_buy else self.notional
 
 
 @dataclass(frozen=True, slots=True)

@@ -32,7 +32,8 @@ from legvise.market.sweep import Sweep
 from legvise.model.book import Book, Side
 from legvise.model.instrument import Instrument
 from legvise.model.inventory import Band, Position
-from legvise.model.plan import Leg, Plan, PlanKind, PlanStatus
+from legvise.model.leg import Leg
+from legvise.model.plan import Plan, PlanKind, PlanStatus
 from legvise.model.venue import Venue
 from legvise.money import ZERO, dec
 from legvise.risk.bands import excess_above_ceiling

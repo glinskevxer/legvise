@@ -37,7 +37,8 @@ from legvise.market.spread import raw_cross_bps
 from legvise.model.audit import Decision, Stage
 from legvise.model.book import Book, Side
 from legvise.model.instrument import Instrument
-from legvise.model.plan import Leg, Plan, PlanKind, PlanStatus
+from legvise.model.leg import Leg
+from legvise.model.plan import Plan, PlanKind, PlanStatus
 from legvise.model.venue import Venue
 from legvise.money import ZERO
 from legvise.risk.caps import CapSet

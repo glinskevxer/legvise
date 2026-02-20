@@ -172,6 +172,24 @@ The desk's floor, target and ceiling for one asset on one venue.
 | `target` | `Decimal` |
 | `ceiling` | `Decimal` |
 
+## `model.leg`
+
+### Leg
+
+One order in a plan, priced against the book it was read from.
+
+| field | type |
+| --- | --- |
+| `venue` | `str` |
+| `symbol` | `Symbol` |
+| `takes` | `Side` |
+| `price` | `Decimal` |
+| `size` | `Decimal` |
+| `fee_bps` | `Decimal` |
+| `fee_amount` | `Decimal` |
+| `levels_swept` | `int` |
+| `slippage_bps` | `Decimal` |
+
 ## `model.network`
 
 ### TransferNetwork
@@ -208,22 +226,6 @@ What shape of opportunity this is.
 ### PlanStatus
 
 Where a plan got to.
-
-### Leg
-
-One order in a plan, priced against the book it was read from.
-
-| field | type |
-| --- | --- |
-| `venue` | `str` |
-| `symbol` | `Symbol` |
-| `takes` | `Side` |
-| `price` | `Decimal` |
-| `size` | `Decimal` |
-| `fee_bps` | `Decimal` |
-| `fee_amount` | `Decimal` |
-| `levels_swept` | `int` |
-| `slippage_bps` | `Decimal` |
 
 ### Plan
 

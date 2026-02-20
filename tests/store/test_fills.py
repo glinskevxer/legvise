@@ -8,7 +8,8 @@ from legvise.errors import Conflict, NotFound
 from legvise.ids import parse_symbol
 from legvise.model.book import Side
 from legvise.model.fill import Fill, LegOutcome
-from legvise.model.plan import Leg, Plan, PlanKind, PlanStatus
+from legvise.model.leg import Leg
+from legvise.model.plan import Plan, PlanKind, PlanStatus
 from legvise.money import dec
 from legvise.store.db import Database
 from legvise.store.fills import FillStore

@@ -16,7 +16,8 @@ import sqlite3
 from legvise.errors import NotFound
 from legvise.ids import Symbol, symbol_text
 from legvise.model.book import Side
-from legvise.model.plan import Leg, Plan, PlanKind, PlanStatus
+from legvise.model.leg import Leg
+from legvise.model.plan import Plan, PlanKind, PlanStatus
 from legvise.rows import as_decimal, as_int, as_optional_text, as_symbol, as_text
 from legvise.store.db import Database
 
