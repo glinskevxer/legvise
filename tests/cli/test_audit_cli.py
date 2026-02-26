@@ -2,20 +2,7 @@
 
 from __future__ import annotations
 
-import pytest
-
-from tests.cli.conftest import Run
-from tests.cli.test_scan_cli import wire
-
-
-@pytest.fixture()
-def scanned(run: Run) -> tuple[Run, str]:
-    desk = wire(run)
-    desk("book", "load", "kraken", "BTC-USD", "--bid", "99.00:50", "--ask", "100.00:50")
-    desk("book", "load", "okx", "BTC-USD", "--bid", "101.00:50", "--ask", "102.00:50")
-    output = desk("scan", "run", "--window-ms", "600000").output
-    session = next(line.split()[1] for line in output.splitlines() if line.startswith("session"))
-    return (desk, session)
+from tests.cli.conftest import Run, session_of, wire
 
 
 def test_the_ledger_lists_every_decision_the_scan_took(scanned: tuple[Run, str]) -> None:
@@ -122,5 +109,5 @@ def test_a_stale_scan_records_its_clause_in_the_ledger(run: Run) -> None:
         "2020-01-01T00:00:00+00:00",
     )
     output = desk("scan", "run", "--window-ms", "600000").output
-    session = next(line.split()[1] for line in output.splitlines() if line.startswith("session"))
+    session = session_of(output)
     assert "STALE.01" in desk("audit", "clauses", session).output

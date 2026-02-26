@@ -5,20 +5,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-import pytest
-
-from tests.cli.conftest import Run
-from tests.cli.test_scan_cli import wire
-
-
-@pytest.fixture()
-def scanned(run: Run) -> tuple[Run, str]:
-    desk = wire(run)
-    desk("book", "load", "kraken", "BTC-USD", "--bid", "99.00:50", "--ask", "100.00:50")
-    desk("book", "load", "okx", "BTC-USD", "--bid", "101.00:50", "--ask", "102.00:50")
-    output = desk("scan", "run", "--window-ms", "600000").output
-    session = next(line.split()[1] for line in output.splitlines() if line.startswith("session"))
-    return (desk, session)
+from tests.cli.conftest import Run, session_of, wire
 
 
 def test_the_scan_found_one_plan(scanned: tuple[Run, str]) -> None:
@@ -74,7 +61,7 @@ def test_the_best_command_takes_a_count(scanned: tuple[Run, str]) -> None:
 def test_best_says_so_when_nothing_was_actionable(run: Run) -> None:
     desk = wire(run)
     output = desk("scan", "run").output
-    session = next(line.split()[1] for line in output.splitlines() if line.startswith("session"))
+    session = session_of(output)
     assert "nothing was actionable" in desk("plan", "best", session).output
 
 

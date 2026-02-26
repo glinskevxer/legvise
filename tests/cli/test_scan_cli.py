@@ -2,74 +2,7 @@
 
 from __future__ import annotations
 
-import pytest
-
 from tests.cli.conftest import Run
-
-
-def wire(run: Run) -> Run:
-    """Two venues, one market each, fees, balances and bands."""
-    for code, name in (("kraken", "Kraken"), ("okx", "OKX")):
-        run(
-            "venue",
-            "add",
-            code,
-            name,
-            "--staleness-ms",
-            "600000",
-            "--depth-bps",
-            "500",
-            "--cap",
-            "10000000",
-        )
-        run(
-            "instrument",
-            "add",
-            code,
-            "BTC-USD",
-            "--tick",
-            "0.01",
-            "--lot",
-            "0.0001",
-            "--min-notional",
-            "10",
-            "--max-notional",
-            "10000000",
-        )
-        run("fee", "set-ladder", code, "0:0:5")
-        run("fee", "record-volume", code, "0")
-        run("inventory", "set-balance", code, "BTC", "50")
-        run("inventory", "set-balance", code, "USD", "5000000")
-        run(
-            "inventory",
-            "set-band",
-            code,
-            "BTC",
-            "--floor",
-            "0",
-            "--target",
-            "25",
-            "--ceiling",
-            "1000",
-        )
-        run(
-            "inventory",
-            "set-band",
-            code,
-            "USD",
-            "--floor",
-            "0",
-            "--target",
-            "1000000",
-            "--ceiling",
-            "50000000",
-        )
-    return run
-
-
-@pytest.fixture()
-def desk(run: Run) -> Run:
-    return wire(run)
 
 
 def test_a_scan_with_no_books_reports_nothing_priced(desk: Run) -> None:
