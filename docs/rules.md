@@ -42,7 +42,7 @@ one fired and act on the answer.
 
 | clause | says | raised in |
 | --- | --- | --- |
-| `FEE.01` | a fee tier has to be resolved before a leg can be priced | `fees.ladder`, `fees.quote` |
+| `FEE.01` | a fee tier has to be resolved before a leg can be priced | `fees.balance`, `fees.ladder`, `fees.quote` |
 | `FEE.02` | a maker rebate is only credited where the venue pays one | `fees.ladder` |
 
 ## BAND

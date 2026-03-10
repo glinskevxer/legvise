@@ -85,3 +85,88 @@ def test_replacing_a_ladder_shortens_it(laddered: Run) -> None:
 
 def test_a_volume_that_is_not_a_number_is_refused(laddered: Run) -> None:
     laddered("fee", "record-volume", "kraken", "lots", expect=1)
+
+
+def test_the_funding_command_reports_what_the_fee_needs(laddered: Run) -> None:
+    laddered("fee", "record-volume", "kraken", "0")
+    laddered("inventory", "set-balance", "kraken", "OKB", "100")
+    output = laddered(
+        "fee",
+        "funding",
+        "kraken",
+        "10000",
+        "--fee-asset",
+        "OKB",
+        "--fee-asset-price",
+        "50",
+    ).output
+    assert "needed" in output
+    assert "available  100" in output
+
+
+def test_the_funding_command_counts_the_cycles_the_balance_covers(laddered: Run) -> None:
+    laddered("fee", "record-volume", "kraken", "0")
+    laddered("inventory", "set-balance", "kraken", "OKB", "100")
+    line = next(
+        row
+        for row in laddered(
+            "fee",
+            "funding",
+            "kraken",
+            "10000",
+            "--fee-asset",
+            "OKB",
+            "--fee-asset-price",
+            "50",
+        ).output.splitlines()
+        if row.startswith("cycles")
+    )
+    assert int(line.split()[1]) > 1
+
+
+def test_the_funding_command_says_the_discount_is_safe(laddered: Run) -> None:
+    laddered("fee", "record-volume", "kraken", "0")
+    laddered("inventory", "set-balance", "kraken", "OKB", "100")
+    output = laddered(
+        "fee",
+        "funding",
+        "kraken",
+        "10000",
+        "--fee-asset",
+        "OKB",
+        "--fee-asset-price",
+        "50",
+        "--discount-bps",
+        "2500",
+    ).output
+    assert "the discount is safe to price" in output
+
+
+def test_the_funding_command_refuses_when_the_desk_holds_none(laddered: Run) -> None:
+    laddered("fee", "record-volume", "kraken", "0")
+    result = laddered(
+        "fee",
+        "funding",
+        "kraken",
+        "10000",
+        "--fee-asset",
+        "OKB",
+        "--fee-asset-price",
+        "50",
+        expect=1,
+    )
+    assert "FEE.01" in result.output
+
+
+def test_the_funding_command_needs_a_recorded_volume(laddered: Run) -> None:
+    laddered(
+        "fee",
+        "funding",
+        "kraken",
+        "10000",
+        "--fee-asset",
+        "OKB",
+        "--fee-asset-price",
+        "50",
+        expect=1,
+    )

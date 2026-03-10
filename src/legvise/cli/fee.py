@@ -5,10 +5,14 @@ from __future__ import annotations
 import click
 
 from legvise.cli.options import app, echo_rows
+from legvise.fees.balance import cycles_funded, funding_for, require_funded
 from legvise.fees.ladder import resolve, rung_index
+from legvise.fees.quote import FeeContext, charge_for
+from legvise.ids import asset_code
 from legvise.model.fee import FeeLadder
 from legvise.money import dec
 from legvise.store.fees import FeeStore
+from legvise.store.inventory import InventoryStore
 
 __all__ = ["group"]
 
@@ -106,3 +110,50 @@ def clear_volume(ctx: click.Context, venue: str) -> None:
         FeeStore(context.db).clear_volume(venue)
     if not context.quiet:
         click.echo(f"{venue} has no trailing volume on file")
+
+
+@group.command("funding")
+@click.argument("venue")
+@click.argument("notional")
+@click.option("--fee-asset", required=True, help="Asset this venue bills the fee in.")
+@click.option("--fee-asset-price", required=True, help="What one unit of it is worth in quote.")
+@click.option("--discount-bps", default="0", show_default=True, help="Discount for paying in it.")
+@click.pass_context
+def funding(
+    ctx: click.Context,
+    venue: str,
+    notional: str,
+    fee_asset: str,
+    fee_asset_price: str,
+    discount_bps: str,
+) -> None:
+    """Say whether the desk can pay a fee in the asset the venue bills it in.
+
+    A venue that runs the desk out of its own token stops applying the discount
+    and charges the full rate in the quote asset instead, silently. This is the
+    check that would have noticed.
+    """
+    context = app(ctx)
+    store = FeeStore(context.db)
+    tier = resolve(store.ladder(venue), store.volume(venue))
+    charge = charge_for(
+        FeeContext(
+            venue=venue,
+            tier=tier,
+            pays_maker_rebate=False,
+            fee_asset=asset_code(fee_asset),
+            fee_asset_rate=dec(fee_asset_price, field="fee_asset_price"),
+            fee_asset_discount_bps=dec(discount_bps, field="discount_bps"),
+        ),
+        dec(notional, field="notional"),
+        resting=False,
+    )
+    held = InventoryStore(context.db).position(venue, fee_asset)
+    found = funding_for(charge, held)
+    click.echo(f"rate       {charge.rate_bps} bps")
+    click.echo(f"needed     {found.needed} {found.asset}")
+    click.echo(f"available  {found.available} {found.asset}")
+    click.echo(f"cycles     {cycles_funded(charge, held)}")
+    require_funded(charge, held)
+    if not context.quiet:
+        click.echo("the discount is safe to price")
