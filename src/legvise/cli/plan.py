@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 import click
 
 from legvise.cli.options import app, bps_text, echo_rows
+from legvise.ids import venue_code
 from legvise.model.plan import Plan
+from legvise.money import dec
+from legvise.scan.ranker import RankTerms, rank
 from legvise.store.plans import PlanStore
 
 __all__ = ["group"]
@@ -96,6 +101,64 @@ def best(ctx: click.Context, session: str, count: int) -> None:
         click.echo(f"{plan.ref} {bps_text(plan.net_bps)}")
     if not plans and not context.quiet:
         click.echo("nothing was actionable in that session", err=True)
+
+
+@group.command("rank")
+@click.argument("session")
+@click.option(
+    "--depth-penalty-bps",
+    default="0.5",
+    show_default=True,
+    help="Charged per level swept beyond the touch on each leg.",
+)
+@click.option(
+    "--venue-weight",
+    "weights",
+    multiple=True,
+    help="How much the desk trusts a venue to fill, as VENUE:WEIGHT.",
+)
+@click.pass_context
+def rank_plans(
+    ctx: click.Context, session: str, depth_penalty_bps: str, weights: tuple[str, ...]
+) -> None:
+    """Order a session's plans by what they are expected to make, not by rate.
+
+    A nine basis point plan on two thousand dollars is worth less than a four
+    basis point plan on eighty thousand, and sorting by edge puts the wrong one
+    at the top of the morning.
+    """
+    context = app(ctx)
+    terms = RankTerms(
+        depth_penalty_bps=dec(depth_penalty_bps, field="depth_penalty_bps"),
+        venue_weights=_weights(weights) or None,
+    )
+    ordered = rank(PlanStore(context.db).for_session(session), terms)
+    rows = [
+        (
+            item.plan.ref.split("/")[-1],
+            "/".join(item.plan.venues),
+            str(item.plan.notional),
+            bps_text(item.plan.net_bps),
+            bps_text(item.adjusted_bps),
+            bps_text(item.penalty_bps),
+            str(item.levels_swept),
+            bps_text(item.expected_amount, "0.00000001"),
+        )
+        for item in ordered
+    ]
+    echo_rows(rows, ("plan", "venues", "notional", "net", "adjusted", "penalty", "levels", "makes"))
+    if not ordered and not context.quiet:
+        click.echo("nothing was actionable in that session", err=True)
+
+
+def _weights(given: tuple[str, ...]) -> dict[str, Decimal]:
+    found: dict[str, Decimal] = {}
+    for entry in given:
+        parts = entry.split(":")
+        if len(parts) != 2:
+            raise click.BadParameter(f"expected VENUE:WEIGHT, got {entry!r}")
+        found[venue_code(parts[0])] = dec(parts[1], field="venue_weight")
+    return found
 
 
 @group.command("check")

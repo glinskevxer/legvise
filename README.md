@@ -67,6 +67,7 @@ Load the fee ladders and the desk's trailing volume:
 legvise fee set-ladder kraken 0:10:16 1000000:6:10 25000000:0:6
 legvise fee record-volume kraken 2000000
 legvise fee rate kraken
+legvise fee funding kraken 50000 --fee-asset OKB --fee-asset-price 50
 ```
 
 Record what the desk is holding and the bands it wants to stay inside:
@@ -96,6 +97,7 @@ legvise book touch BTC-USD
 legvise book imbalance kraken BTC-USD
 legvise scan run --min-edge-bps 3 --size 0.5
 legvise plan list S20250801.0000
+legvise plan rank S20250801.0000
 ```
 
 ## Looking after the file

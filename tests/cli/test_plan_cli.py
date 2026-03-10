@@ -81,3 +81,38 @@ def test_the_check_command_catches_a_plan_that_was_tampered_with(
     conn.close()
     result = desk("plan", "check", session, expect=1)
     assert "do not add up" in result.output
+
+
+def test_the_rank_command_lists_what_each_plan_makes(scanned: tuple[Run, str]) -> None:
+    desk, session = scanned
+    output = desk("plan", "rank", session).output
+    assert "makes" in output
+    assert "adjusted" in output
+
+
+def test_the_rank_command_reports_the_depth_penalty(scanned: tuple[Run, str]) -> None:
+    desk, session = scanned
+    output = desk("plan", "rank", session, "--depth-penalty-bps", "2").output
+    assert "penalty" in output
+
+
+def test_a_venue_weight_is_accepted(scanned: tuple[Run, str]) -> None:
+    desk, session = scanned
+    desk("plan", "rank", session, "--venue-weight", "okx:0.5")
+
+
+def test_a_venue_weight_that_is_not_a_pair_is_a_usage_error(scanned: tuple[Run, str]) -> None:
+    desk, session = scanned
+    result = desk("plan", "rank", session, "--venue-weight", "okx", expect=2)
+    assert "VENUE:WEIGHT" in result.output
+
+
+def test_a_venue_weight_of_zero_is_refused(scanned: tuple[Run, str]) -> None:
+    desk, session = scanned
+    desk("plan", "rank", session, "--venue-weight", "okx:0", expect=1)
+
+
+def test_ranking_a_session_with_nothing_sendable_says_so(desk: Run) -> None:
+    output = desk("scan", "run").output
+    session = session_of(output)
+    assert "nothing was actionable" in desk("plan", "rank", session).output
