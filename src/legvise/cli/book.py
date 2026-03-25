@@ -14,11 +14,13 @@ import click
 
 from legvise.cli.options import app, bps_text, echo_rows
 from legvise.clock import parse_instant
+from legvise.market.decay import confidence_in
 from legvise.market.imbalance import disagreement, imbalance_at, leans_toward
 from legvise.market.spread import mid, spread_bps
 from legvise.model.book import Book, Side
 from legvise.money import dec
 from legvise.store.books import BookStore
+from legvise.store.venues import VenueStore
 
 __all__ = ["group"]
 
@@ -187,3 +189,25 @@ def imbalance(ctx: click.Context, venue: str, symbol: str, depth_bps: str) -> No
     click.echo(f"apart   {bps_text(disagreement(book, limit), '0.0001')}")
     side = leans_toward(book, limit)
     click.echo(f"leans   {side.value if side else 'neither, the two measures disagree'}")
+
+
+@group.command("confidence")
+@click.argument("venue")
+@click.argument("symbol")
+@click.pass_context
+def confidence(ctx: click.Context, venue: str, symbol: str) -> None:
+    """Print how far through its staleness budget the newest book is.
+
+    The budget is a cliff and this is the slope up to it. A book halfway through
+    is still tradable and is worth sizing smaller, which the cliff on its own
+    cannot express.
+    """
+    context = app(ctx)
+    book = BookStore(context.db).require_latest(venue, symbol)
+    record = VenueStore(context.db).get(venue)
+    found = confidence_in(book, record, context.clock.now())
+    click.echo(f"age      {found.age_ms} ms")
+    click.echo(f"budget   {found.budget_ms} ms")
+    click.echo(f"believe  {bps_text(found.factor, '0.0001')}")
+    state = "fresh" if found.is_fresh else ("spent" if found.is_spent else "decaying")
+    click.echo(f"state    {state}")

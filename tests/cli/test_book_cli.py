@@ -167,3 +167,40 @@ def test_a_one_sided_book_has_no_imbalance_to_print(seeded: Run) -> None:
     seeded("book", "load", "kraken", "BTC-USD", "--bid", "99:1")
     result = seeded("book", "imbalance", "kraken", "BTC-USD", expect=1)
     assert "BOOK.02" in result.output
+
+
+def test_the_confidence_command_reports_the_age_and_the_budget(seeded: Run) -> None:
+    seeded("book", "load", "kraken", "BTC-USD", "--bid", "99:1", "--ask", "100:1")
+    output = seeded("book", "confidence", "kraken", "BTC-USD").output
+    assert "age" in output
+    assert "budget   750 ms" in output
+
+
+def test_a_book_loaded_just_now_is_still_nearly_believed_in_full(seeded: Run) -> None:
+    # The load and the read are separate processes on a real clock, so a few
+    # milliseconds have passed. The state is decaying, barely.
+    seeded("book", "load", "kraken", "BTC-USD", "--bid", "99:1", "--ask", "100:1")
+    output = seeded("book", "confidence", "kraken", "BTC-USD").output
+    believe = next(row for row in output.splitlines() if row.startswith("believe"))
+    assert float(believe.split()[1]) > 0.9
+    assert "state    spent" not in output
+
+
+def test_an_old_book_reads_as_spent(seeded: Run) -> None:
+    seeded(
+        "book",
+        "load",
+        "kraken",
+        "BTC-USD",
+        "--bid",
+        "99:1",
+        "--ask",
+        "100:1",
+        "--observed-at",
+        "2020-01-01T00:00:00+00:00",
+    )
+    assert "state    spent" in seeded("book", "confidence", "kraken", "BTC-USD").output
+
+
+def test_the_confidence_command_needs_a_book_on_file(seeded: Run) -> None:
+    seeded("book", "confidence", "kraken", "BTC-USD", expect=1)
