@@ -141,3 +141,99 @@ def test_applying_and_measuring_basis_points_are_inverses() -> None:
     whole = dec("12345.67")
     part = apply_bps(whole, dec("37"))
     assert to_bps(part, whole) == dec("37")
+
+
+# Relationships that have to hold for every value, swept over a fixed sample.
+#
+# Not random. A property test whose inputs change between runs is one that
+# passes on the machine that wrote it and fails on the machine that did not,
+# with no way to reproduce it. These sweep a written down sample instead, which
+# is a smaller net and a net that catches the same fish twice.
+
+SAMPLE = (
+    "0.00000001",
+    "0.1",
+    "0.5",
+    "1",
+    "1.00000001",
+    "7.5",
+    "99.999",
+    "100",
+    "1234.5678",
+    "1000000",
+)
+
+STEPS = ("0.00000001", "0.001", "0.01", "0.1", "0.5", "1", "5")
+
+
+@pytest.mark.parametrize("value", SAMPLE)
+@pytest.mark.parametrize("step", STEPS)
+def test_rounding_down_never_goes_above_the_value(value: str, step: str) -> None:
+    assert quantize_down(dec(value), dec(step)) <= dec(value)
+
+
+@pytest.mark.parametrize("value", SAMPLE)
+@pytest.mark.parametrize("step", STEPS)
+def test_rounding_up_never_goes_below_the_value(value: str, step: str) -> None:
+    assert quantize_up(dec(value), dec(step)) >= dec(value)
+
+
+@pytest.mark.parametrize("value", SAMPLE)
+@pytest.mark.parametrize("step", STEPS)
+def test_rounding_up_and_down_are_at_most_one_step_apart(value: str, step: str) -> None:
+    low = quantize_down(dec(value), dec(step))
+    high = quantize_up(dec(value), dec(step))
+    assert high - low <= dec(step)
+
+
+@pytest.mark.parametrize("value", SAMPLE)
+@pytest.mark.parametrize("step", STEPS)
+def test_every_rounded_value_lands_on_the_grid(value: str, step: str) -> None:
+    for rounded in (
+        quantize_down(dec(value), dec(step)),
+        quantize_up(dec(value), dec(step)),
+        quantize_nearest(dec(value), dec(step)),
+    ):
+        assert step_multiple(rounded, dec(step))
+
+
+@pytest.mark.parametrize("value", SAMPLE)
+@pytest.mark.parametrize("step", STEPS)
+def test_rounding_to_nearest_sits_between_the_other_two(value: str, step: str) -> None:
+    low = quantize_down(dec(value), dec(step))
+    near = quantize_nearest(dec(value), dec(step))
+    high = quantize_up(dec(value), dec(step))
+    assert low <= near <= high
+
+
+@pytest.mark.parametrize("value", SAMPLE)
+@pytest.mark.parametrize("step", STEPS)
+def test_a_value_already_on_the_grid_does_not_move(value: str, step: str) -> None:
+    on_grid = quantize_down(dec(value), dec(step))
+    assert quantize_down(on_grid, dec(step)) == on_grid
+    assert quantize_up(on_grid, dec(step)) == on_grid
+
+
+@pytest.mark.parametrize("value", SAMPLE)
+@pytest.mark.parametrize("rate", ["1", "10", "16", "250", "10000"])
+def test_applying_a_rate_and_measuring_it_back_agree(value: str, rate: str) -> None:
+    whole = dec(value)
+    assert to_bps(apply_bps(whole, dec(rate)), whole) == dec(rate)
+
+
+@pytest.mark.parametrize("low", SAMPLE)
+@pytest.mark.parametrize("rate", ["1", "50", "1000"])
+def test_a_spread_measured_and_reapplied_returns_the_high_price(low: str, rate: str) -> None:
+    base = dec(low)
+    high = base + apply_bps(base, dec(rate))
+    assert bps_between(base, high) == dec(rate)
+
+
+@pytest.mark.parametrize("value", SAMPLE)
+def test_a_spread_against_itself_is_nothing(value: str) -> None:
+    assert bps_between(dec(value), dec(value)) == dec("0")
+
+
+@pytest.mark.parametrize("value", SAMPLE)
+def test_every_sample_survives_a_text_round_trip(value: str) -> None:
+    assert dec(format(dec(value), "f")) == dec(value)
