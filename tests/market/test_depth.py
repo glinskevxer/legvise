@@ -8,7 +8,13 @@ from decimal import Decimal
 import pytest
 
 from legvise.errors import BadArgument, Refused
-from legvise.market.depth import reachable, slippage_bps, sweep_cost, walk
+from legvise.market.depth import (
+    reachable,
+    slippage_bps,
+    sweep_cost,
+    walk,
+    walk_for_notional,
+)
 from legvise.model.book import Book, Side
 from legvise.money import dec
 
@@ -136,3 +142,99 @@ def test_slippage_at_the_touch_is_nothing() -> None:
 def test_slippage_on_the_bid_side_is_also_positive() -> None:
     got = walk(BOOK, Side.BID, dec("4"))
     assert slippage_bps(BOOK, got) > Decimal("0")
+
+
+# Relationships a walk has to satisfy whatever the book and the size are.
+
+LADDER = Book.build(
+    "kraken",
+    "BTC-USD",
+    observed_at=AT,
+    bids=(("100.00", "1"), ("99.50", "2"), ("99.00", "4"), ("95.00", "8")),
+    asks=(("100.50", "1"), ("101.00", "2"), ("102.00", "4"), ("110.00", "8")),
+)
+
+TARGETS = ("0.25", "1", "1.5", "3", "6", "7", "14", "15")
+LIMITS = ("1", "50", "100", "300", "1000", "5000")
+
+
+@pytest.mark.parametrize("target", TARGETS)
+@pytest.mark.parametrize("side", [Side.BID, Side.ASK])
+def test_a_walk_never_takes_more_than_it_was_asked_for(target: str, side: Side) -> None:
+    assert walk(LADDER, side, dec(target)).size <= dec(target)
+
+
+@pytest.mark.parametrize("target", TARGETS)
+@pytest.mark.parametrize("side", [Side.BID, Side.ASK])
+def test_a_complete_walk_took_exactly_what_it_was_asked_for(target: str, side: Side) -> None:
+    got = walk(LADDER, side, dec(target))
+    if got.complete:
+        assert got.size == dec(target)
+
+
+@pytest.mark.parametrize("target", TARGETS)
+@pytest.mark.parametrize("side", [Side.BID, Side.ASK])
+def test_a_walk_that_got_something_has_an_average_inside_the_book(target: str, side: Side) -> None:
+    got = walk(LADDER, side, dec(target))
+    if got.is_empty:
+        return
+    touch = LADDER.touch(side).price
+    if side is Side.ASK:
+        assert touch <= got.vwap <= got.worst_price
+    else:
+        assert got.worst_price <= got.vwap <= touch
+
+
+@pytest.mark.parametrize("target", TARGETS)
+@pytest.mark.parametrize("side", [Side.BID, Side.ASK])
+def test_a_bigger_walk_never_gets_less(target: str, side: Side) -> None:
+    smaller = walk(LADDER, side, dec(target))
+    bigger = walk(LADDER, side, dec(target) + dec("0.5"))
+    assert bigger.size >= smaller.size
+    assert bigger.levels >= smaller.levels
+
+
+@pytest.mark.parametrize("target", TARGETS)
+@pytest.mark.parametrize("side", [Side.BID, Side.ASK])
+def test_the_slippage_of_a_walk_never_reads_negative(target: str, side: Side) -> None:
+    got = walk(LADDER, side, dec(target))
+    if not got.is_empty:
+        assert slippage_bps(LADDER, got) >= dec("0")
+
+
+@pytest.mark.parametrize("limit", LIMITS)
+@pytest.mark.parametrize("side", [Side.BID, Side.ASK])
+def test_a_wider_limit_never_reaches_less(limit: str, side: Side) -> None:
+    tight = reachable(LADDER, side, dec(limit))
+    wide = reachable(LADDER, side, dec(limit) + dec("50"))
+    assert wide.size >= tight.size
+
+
+@pytest.mark.parametrize("limit", LIMITS)
+@pytest.mark.parametrize("side", [Side.BID, Side.ASK])
+def test_what_is_reachable_never_exceeds_the_whole_side(limit: str, side: Side) -> None:
+    whole = sum((level.size for level in LADDER.side(side)), start=dec("0"))
+    assert reachable(LADDER, side, dec(limit)).size <= whole
+
+
+@pytest.mark.parametrize("budget", ["10", "100", "150.5", "500", "2000", "10000"])
+@pytest.mark.parametrize("side", [Side.BID, Side.ASK])
+def test_a_budget_walk_never_spends_more_than_the_budget(budget: str, side: Side) -> None:
+    assert walk_for_notional(LADDER, side, dec(budget)).notional <= dec(budget)
+
+
+@pytest.mark.parametrize("budget", ["10", "100", "150.5", "500", "2000"])
+@pytest.mark.parametrize("side", [Side.BID, Side.ASK])
+def test_a_complete_budget_walk_spent_the_whole_budget(budget: str, side: Side) -> None:
+    got = walk_for_notional(LADDER, side, dec(budget))
+    if got.complete:
+        assert got.notional == dec(budget)
+
+
+@pytest.mark.parametrize("budget", ["10", "100", "500", "2000"])
+def test_the_two_walks_agree_about_what_a_size_costs(budget: str) -> None:
+    by_budget = walk_for_notional(LADDER, Side.ASK, dec(budget))
+    if not by_budget.complete:
+        return
+    by_size = walk(LADDER, Side.ASK, by_budget.size)
+    assert abs(by_size.notional - by_budget.notional) < dec("0.00000001")
