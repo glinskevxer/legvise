@@ -7,7 +7,8 @@ from decimal import Decimal
 import click
 
 from legvise.cli.options import app, bps_text, echo_rows
-from legvise.ids import asset_code
+from legvise.ids import asset_code, venue_code
+from legvise.ledger.reconcile import reconcile
 from legvise.model.inventory import Band, Position
 from legvise.money import dec
 from legvise.risk.bands import room_for
@@ -205,3 +206,74 @@ def _venue_spread(priced: Concentration, asset: str) -> str:
     return " ".join(
         f"{venue}={bps_text(priced.venue_share(asset, venue), '0.01')}" for venue in venues
     )
+
+
+@group.command("reconcile")
+@click.option(
+    "--holds",
+    "holds",
+    multiple=True,
+    required=True,
+    help="What a venue says it holds, as VENUE:ASSET:AMOUNT.",
+)
+@click.option(
+    "--tolerance",
+    "tolerances",
+    multiple=True,
+    help="Dust to ignore for an asset, as ASSET:AMOUNT.",
+)
+@click.pass_context
+def reconcile_balances(
+    ctx: click.Context, holds: tuple[str, ...], tolerances: tuple[str, ...]
+) -> None:
+    """Compare what the desk records against what a venue snapshot says.
+
+    Nothing is written. A reconciliation that overwrites the desk's record with
+    the venue's is a reconciliation nobody ever reads, and the differences are
+    the whole point.
+    """
+    context = app(ctx)
+    store = InventoryStore(context.db)
+    positions = tuple(p for asset in store.assets_held() for p in store.positions_of(asset))
+    found = reconcile(positions, _holdings(holds), _tolerances(tolerances))
+    rows = [
+        (
+            item.venue,
+            item.asset,
+            str(item.ours),
+            str(item.theirs),
+            str(item.drift),
+            "yes" if item.is_material else "no",
+            item.direction,
+        )
+        for item in found.differences
+    ]
+    echo_rows(rows, ("venue", "asset", "ours", "theirs", "drift", "material", "reads"))
+    worst = found.worst()
+    if worst is not None:
+        raise click.ClickException(
+            f"{len(found.material)} material differences, worst"
+            f" {worst.venue} {worst.asset} at {worst.drift}"
+        )
+    if not context.quiet:
+        click.echo("the desk and the venues agree")
+
+
+def _holdings(given: tuple[str, ...]) -> dict[tuple[str, str], Decimal]:
+    found: dict[tuple[str, str], Decimal] = {}
+    for entry in given:
+        parts = entry.split(":")
+        if len(parts) != 3:
+            raise click.BadParameter(f"expected VENUE:ASSET:AMOUNT, got {entry!r}")
+        found[(venue_code(parts[0]), asset_code(parts[1]))] = dec(parts[2], field="amount")
+    return found
+
+
+def _tolerances(given: tuple[str, ...]) -> dict[str, Decimal]:
+    found: dict[str, Decimal] = {}
+    for entry in given:
+        parts = entry.split(":")
+        if len(parts) != 2:
+            raise click.BadParameter(f"expected ASSET:AMOUNT, got {entry!r}")
+        found[asset_code(parts[0])] = dec(parts[1], field="tolerance")
+    return found

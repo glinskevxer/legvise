@@ -187,3 +187,95 @@ def test_a_mark_that_is_not_a_pair_is_a_usage_error(held: Run) -> None:
 def test_a_held_asset_with_no_mark_fails_the_command(held: Run) -> None:
     result = held("inventory", "concentration", "--mark", "BTC:100000", expect=1)
     assert "USD" in result.output
+
+
+def test_reconciling_against_a_matching_snapshot_agrees(held: Run) -> None:
+    output = held(
+        "inventory",
+        "reconcile",
+        "--holds",
+        "kraken:BTC:5",
+        "--holds",
+        "okx:BTC:2",
+        "--holds",
+        "kraken:USD:400000",
+    ).output
+    assert "the desk and the venues agree" in output
+
+
+def test_reconciling_reports_every_balance_it_compared(held: Run) -> None:
+    lines = (
+        held(
+            "inventory",
+            "reconcile",
+            "--holds",
+            "kraken:BTC:5",
+            "--holds",
+            "okx:BTC:2",
+            "--holds",
+            "kraken:USD:400000",
+        )
+        .output.strip()
+        .splitlines()
+    )
+    assert len(lines) == 6
+
+
+def test_a_material_drift_fails_the_command(held: Run) -> None:
+    result = held(
+        "inventory",
+        "reconcile",
+        "--holds",
+        "kraken:BTC:6",
+        "--holds",
+        "okx:BTC:2",
+        "--holds",
+        "kraken:USD:400000",
+        expect=1,
+    )
+    assert "material differences" in result.output
+
+
+def test_a_drift_inside_the_tolerance_passes(held: Run) -> None:
+    output = held(
+        "inventory",
+        "reconcile",
+        "--holds",
+        "kraken:BTC:5.0000001",
+        "--holds",
+        "okx:BTC:2",
+        "--holds",
+        "kraken:USD:400000",
+        "--tolerance",
+        "BTC:0.001",
+    ).output
+    assert "agree" in output
+
+
+def test_a_balance_only_the_venue_reports_shows_up(held: Run) -> None:
+    result = held(
+        "inventory",
+        "reconcile",
+        "--holds",
+        "kraken:BTC:5",
+        "--holds",
+        "okx:BTC:2",
+        "--holds",
+        "kraken:USD:400000",
+        "--holds",
+        "kraken:SOL:100",
+        expect=1,
+    )
+    assert "SOL" in result.output
+
+
+def test_a_holding_that_is_not_three_parts_is_a_usage_error(held: Run) -> None:
+    result = held("inventory", "reconcile", "--holds", "kraken:BTC", expect=2)
+    assert "VENUE:ASSET:AMOUNT" in result.output
+
+
+def test_a_tolerance_that_is_not_two_parts_is_a_usage_error(held: Run) -> None:
+    result = held(
+        "inventory", "reconcile", "--holds", "kraken:BTC:5", "--tolerance", "BTC", expect=2
+    )
+    assert "ASSET:AMOUNT" in result.output

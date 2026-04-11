@@ -78,6 +78,7 @@ legvise inventory set-band kraken BTC --floor 1 --target 5 --ceiling 9
 legvise inventory show
 legvise inventory room kraken BTC
 legvise inventory concentration --mark BTC:100000 --mark USD:1
+legvise inventory reconcile --holds kraken:BTC:5 --tolerance BTC:0.0001
 ```
 
 Declare how inventory moves back, and which venues will use each network:
