@@ -164,3 +164,79 @@ def test_a_result_count_that_does_not_match_the_plan_is_refused() -> None:
 def test_the_explained_and_unexplained_parts_sum_to_the_gap() -> None:
     found = attribute(a_plan(), results(fills(0, ("100", "1")), fills(1, ("101", "1"))))
     assert found.explained_bps + found.unexplained_bps == found.gap_bps
+
+
+# Relationships attribution has to satisfy whatever the fills came back as.
+
+PRICES = ("98", "99", "100", "101", "102")
+SIZES = ("0.5", "1", "1.5", "2")
+
+
+@pytest.mark.parametrize("buy_price", PRICES)
+@pytest.mark.parametrize("sell_price", PRICES)
+def test_the_named_parts_always_reconstruct_the_gap(buy_price: str, sell_price: str) -> None:
+    found = attribute(
+        a_plan(),
+        results(fills(0, (buy_price, "2")), fills(1, (sell_price, "2"))),
+    )
+    assert found.adds_up()
+
+
+@pytest.mark.parametrize("buy_price", PRICES)
+def test_a_worse_buy_never_realises_more(buy_price: str) -> None:
+    at_plan = attribute(a_plan(), results(fills(0, ("100", "2")), fills(1, ("101", "2"))))
+    moved = attribute(a_plan(), results(fills(0, (buy_price, "2")), fills(1, ("101", "2"))))
+    if dec(buy_price) > dec("100"):
+        assert moved.realised_bps <= at_plan.realised_bps
+
+
+@pytest.mark.parametrize("size", SIZES)
+def test_the_fill_ratio_never_exceeds_one_on_a_partial(size: str) -> None:
+    found = attribute(a_plan(), results(fills(0, ("100", size)), fills(1, ("101", "2"))))
+    assert found.shortfall_ratio <= dec("1")
+
+
+@pytest.mark.parametrize("size", SIZES)
+def test_one_leg_short_is_always_a_shortfall(size: str) -> None:
+    found = attribute(a_plan(), results(fills(0, ("100", size)), fills(1, ("101", "2"))))
+    assert found.shortfall_ratio == dec(size) / dec("2")
+
+
+@pytest.mark.parametrize("size", SIZES)
+def test_a_leg_that_traded_alone_is_always_leg_risk(size: str) -> None:
+    found = attribute(a_plan(), results(fills(0, ("100", size))))
+    assert found.has_leg_risk
+    assert found.naked_legs == (1,)
+
+
+@pytest.mark.parametrize("fee", ["0", "0.1", "0.2", "0.5", "1"])
+def test_a_bigger_fee_never_realises_more(fee: str) -> None:
+    found = attribute(
+        a_plan(),
+        results(fills(0, ("100", "2"), fee=fee), fills(1, ("101", "2"), fee="0.2")),
+    )
+    at_plan = attribute(
+        a_plan(),
+        results(fills(0, ("100", "2"), fee="0.2"), fills(1, ("101", "2"), fee="0.2")),
+    )
+    if dec(fee) > dec("0.2"):
+        assert found.realised_bps <= at_plan.realised_bps
+
+
+@pytest.mark.parametrize("buy_price", PRICES)
+@pytest.mark.parametrize("sell_price", PRICES)
+def test_the_expected_edge_is_always_the_plan_edge(buy_price: str, sell_price: str) -> None:
+    found = attribute(
+        a_plan(),
+        results(fills(0, (buy_price, "2")), fills(1, (sell_price, "2"))),
+    )
+    assert found.expected_bps == a_plan().net_bps
+
+
+@pytest.mark.parametrize("buy_price", PRICES)
+def test_filling_both_legs_is_never_leg_risk(buy_price: str) -> None:
+    found = attribute(
+        a_plan(),
+        results(fills(0, (buy_price, "2")), fills(1, ("101", "2"))),
+    )
+    assert not found.has_leg_risk

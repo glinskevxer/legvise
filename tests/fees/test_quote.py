@@ -157,3 +157,75 @@ def test_a_round_trip_off_a_zero_notional_is_refused() -> None:
     )
     with pytest.raises(BadArgument):
         round_trip_bps(charge, charge)
+
+
+# Relationships a fee has to satisfy whatever the notional and the rate are.
+
+NOTIONALS = ("0.00000001", "1", "10", "137.42", "10000", "1000000")
+RATES = ("0", "1", "5", "10", "16", "35", "100")
+
+
+@pytest.mark.parametrize("notional", NOTIONALS)
+@pytest.mark.parametrize("rate", RATES)
+def test_a_fee_owed_is_never_less_than_the_rate_says(notional: str, rate: str) -> None:
+    charge = charge_for(context(tier=FeeTier.build("0", "0", rate)), dec(notional), resting=False)
+    assert charge.quote_amount >= dec(notional) * dec(rate) / dec("10000")
+
+
+@pytest.mark.parametrize("notional", NOTIONALS)
+@pytest.mark.parametrize("rate", RATES)
+def test_a_fee_owed_rounds_up_by_less_than_one_unit(notional: str, rate: str) -> None:
+    charge = charge_for(context(tier=FeeTier.build("0", "0", rate)), dec(notional), resting=False)
+    exact = dec(notional) * dec(rate) / dec("10000")
+    assert charge.quote_amount - exact < dec("0.00000001")
+
+
+@pytest.mark.parametrize("notional", NOTIONALS)
+@pytest.mark.parametrize("rate", RATES)
+def test_a_fee_lands_on_the_smallest_unit_grid(notional: str, rate: str) -> None:
+    charge = charge_for(context(tier=FeeTier.build("0", "0", rate)), dec(notional), resting=False)
+    assert charge.quote_amount % dec("0.00000001") == dec("0")
+
+
+@pytest.mark.parametrize("notional", NOTIONALS)
+@pytest.mark.parametrize("rate", ["1", "5", "16", "100"])
+def test_a_bigger_notional_never_costs_less(notional: str, rate: str) -> None:
+    tier = FeeTier.build("0", "0", rate)
+    small = charge_for(context(tier=tier), dec(notional), resting=False)
+    large = charge_for(context(tier=tier), dec(notional) * dec("2"), resting=False)
+    assert large.quote_amount >= small.quote_amount
+
+
+@pytest.mark.parametrize("notional", NOTIONALS)
+@pytest.mark.parametrize("discount", ["0", "1000", "2500", "5000", "9000"])
+def test_a_discount_never_raises_the_rate(notional: str, discount: str) -> None:
+    plain = charge_for(context(), dec(notional), resting=False)
+    reduced = charge_for(
+        context(
+            fee_asset="BNB",
+            fee_asset_rate=dec("500"),
+            fee_asset_discount_bps=dec(discount),
+        ),
+        dec(notional),
+        resting=False,
+    )
+    assert reduced.rate_bps <= plain.rate_bps
+
+
+@pytest.mark.parametrize("notional", NOTIONALS)
+@pytest.mark.parametrize("rate", RATES)
+def test_a_rebate_earned_never_exceeds_what_the_rate_says(notional: str, rate: str) -> None:
+    if rate == "0":
+        return
+    tier = FeeTier.build("0", f"-{rate}", rate)
+    charge = charge_for(context(tier=tier, pays_maker_rebate=True), dec(notional), resting=True)
+    assert charge.quote_amount <= dec(notional) * dec(rate) / dec("10000")
+
+
+@pytest.mark.parametrize("notional", NOTIONALS)
+@pytest.mark.parametrize("rate", ["1", "16", "100"])
+def test_a_taking_leg_never_costs_less_than_a_resting_one(notional: str, rate: str) -> None:
+    tier = FeeTier.build("0", "1", rate)
+    taking = charge_for(context(tier=tier), dec(notional), resting=False)
+    resting = charge_for(context(tier=tier), dec(notional), resting=True)
+    assert taking.signed_quote_amount >= resting.signed_quote_amount
