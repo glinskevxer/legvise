@@ -118,6 +118,7 @@ the old snapshots out and `legvise db vacuum` gives the space back.
 ```
 legvise report session S20250801.0000
 legvise scan refusals
+legvise report inventory
 ```
 
 The decision ledger holds what never became a plan at all:

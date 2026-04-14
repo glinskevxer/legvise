@@ -8,6 +8,7 @@ from pathlib import Path
 import click
 
 from legvise.cli.options import app, bps_text, echo_rows
+from legvise.ids import asset_code
 from legvise.report.edge_report import build_edge_report
 from legvise.report.export import (
     PLAN_FIELDS,
@@ -16,8 +17,10 @@ from legvise.report.export import (
     write_edge_json,
     write_session_json,
 )
+from legvise.report.inventory_report import build_inventory_report
 from legvise.report.session_report import summarise
 from legvise.store.fills import FillStore
+from legvise.store.inventory import InventoryStore
 from legvise.store.plans import PlanStore
 
 __all__ = ["group"]
@@ -134,3 +137,44 @@ def export_edge(ctx: click.Context, session_ref: str | None, target: Path | None
             handle.close()
     if target is not None and not context.quiet:
         click.echo(f"wrote {report.plans} plans to {target}")
+
+
+@group.command("inventory")
+@click.option("--asset", default=None, help="Only this asset.")
+@click.pass_context
+def inventory(ctx: click.Context, asset: str | None) -> None:
+    """Print how far each holding is from its target, and what would square it.
+
+    The net move is the number to read. Per venue gaps mostly cancel, and what
+    is left is what actually has to be bought or sold rather than transferred.
+    """
+    context = app(ctx)
+    store = InventoryStore(context.db)
+    assets = (asset_code(asset),) if asset else store.assets_held()
+    positions = tuple(p for held in assets for p in store.positions_of(held))
+    bands = {
+        position.key: band
+        for position in positions
+        if (band := store.band(position.venue, position.asset)) is not None
+    }
+    found = build_inventory_report(positions, bands)
+    rows = [
+        (
+            gap.venue,
+            gap.asset,
+            str(gap.held),
+            str(gap.target),
+            str(gap.gap),
+            gap.state,
+        )
+        for plan in found.plans
+        for gap in plan.gaps
+    ]
+    echo_rows(rows, ("venue", "asset", "held", "target", "gap", "state"))
+    for plan in found.plans:
+        if plan.is_square:
+            continue
+        click.echo(
+            f"{plan.asset}: transfer {plan.transferable}, then"
+            f" {'sell' if plan.net_move > 0 else 'buy'} {abs(plan.net_move)}"
+        )

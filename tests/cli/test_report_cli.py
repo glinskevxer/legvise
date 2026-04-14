@@ -114,3 +114,41 @@ def test_an_exported_file_has_no_carriage_returns(
     target = tmp_path / "plans.csv"
     desk("report", "export", session, "--out", str(target))
     assert b"\r" not in target.read_bytes()
+
+
+def test_the_inventory_report_lists_every_holding(planned: tuple[Run, str, str]) -> None:
+    desk, _, _ = planned
+    lines = desk("report", "inventory").output.strip().splitlines()
+    assert len(lines) >= 6
+
+
+def test_the_inventory_report_says_what_would_square_an_asset(
+    planned: tuple[Run, str, str],
+) -> None:
+    desk, _, _ = planned
+    desk("inventory", "set-balance", "kraken", "BTC", "80")
+    output = desk("report", "inventory").output
+    assert "BTC: transfer" in output
+
+
+def test_a_desk_on_target_needs_nothing_moved(planned: tuple[Run, str, str]) -> None:
+    desk, _, _ = planned
+    desk("inventory", "set-balance", "kraken", "BTC", "25")
+    desk("inventory", "set-balance", "okx", "BTC", "25")
+    output = desk("report", "inventory", "--asset", "BTC").output
+    assert "BTC: transfer" not in output
+
+
+def test_the_inventory_report_can_be_narrowed_to_one_asset(
+    planned: tuple[Run, str, str],
+) -> None:
+    desk, _, _ = planned
+    output = desk("report", "inventory", "--asset", "BTC").output
+    assert "USD" not in output
+
+
+def test_the_inventory_report_names_the_state_of_each_holding(
+    planned: tuple[Run, str, str],
+) -> None:
+    desk, _, _ = planned
+    assert "in band" in desk("report", "inventory").output
