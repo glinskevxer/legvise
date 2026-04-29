@@ -136,6 +136,30 @@ class Database:
         except sqlite3.OperationalError as exc:
             raise BadArgument("statement", _first_line(sql), str(exc)) from None
 
+    def execute_many(self, sql: str, rows: Sequence[Sequence[Any]]) -> int:
+        """Run one statement over many parameter sets, and say how many.
+
+        A book snapshot is forty rows and a busy desk writes one a second per
+        market. Forty round trips through `execute` is forty statement
+        preparations for one statement, and it shows up as a scan that spends
+        more time writing what it saw than reading it.
+
+        Errors translate the same way `execute` translates them, which is why
+        this is here rather than reached for through `connection`.
+        """
+        if not rows:
+            return 0
+        try:
+            cursor = self._conn.executemany(sql, [tuple(row) for row in rows])
+        except sqlite3.IntegrityError as exc:
+            text = str(exc)
+            if "UNIQUE" in text:
+                raise Conflict("row", text.split(":")[-1].strip()) from None
+            raise BadArgument("statement", _first_line(sql), text) from None
+        except sqlite3.OperationalError as exc:
+            raise BadArgument("statement", _first_line(sql), str(exc)) from None
+        return int(cursor.rowcount)
+
     def query(self, sql: str, params: Sequence[Any] = ()) -> list[sqlite3.Row]:
         """Every row a statement returns."""
         return list(self.execute(sql, params).fetchall())

@@ -98,3 +98,40 @@ def test_a_database_can_be_opened_on_a_file(tmp_path: Path) -> None:
     again = Database.open(target)
     assert again.scalar("SELECT count(*) FROM t") == 0
     again.close()
+
+
+def test_a_batch_writes_every_row(db: Database) -> None:
+    written = db.execute_many("INSERT INTO t VALUES (?, ?)", [("a", "1"), ("b", "2"), ("c", "3")])
+    assert written == 3
+    assert db.scalar("SELECT count(*) FROM t") == 3
+
+
+def test_an_empty_batch_writes_nothing_and_says_so(db: Database) -> None:
+    assert db.execute_many("INSERT INTO t VALUES (?, ?)", []) == 0
+
+
+def test_a_batch_with_a_duplicate_key_reads_as_a_conflict(db: Database) -> None:
+    with pytest.raises(Conflict):
+        db.execute_many("INSERT INTO t VALUES (?, ?)", [("a", "1"), ("a", "2")])
+
+
+def test_a_batch_with_a_broken_constraint_reads_as_a_bad_argument(db: Database) -> None:
+    with pytest.raises(BadArgument):
+        db.execute_many("INSERT INTO t VALUES (?, ?)", [("a", None)])
+
+
+def test_a_batch_with_a_broken_statement_reads_as_a_bad_argument(db: Database) -> None:
+    with pytest.raises(BadArgument):
+        db.execute_many("INSERT INTO nowhere VALUES (?, ?)", [("a", "1")])
+
+
+def test_a_batch_inside_a_rolled_back_block_leaves_nothing(db: Database) -> None:
+    with pytest.raises(RuntimeError), db.tx():
+        db.execute_many("INSERT INTO t VALUES (?, ?)", [("a", "1"), ("b", "2")])
+        raise RuntimeError("no")
+    assert db.scalar("SELECT count(*) FROM t") == 0
+
+
+def test_a_batch_of_decimals_stores_them_in_plain_notation(db: Database) -> None:
+    db.execute_many("INSERT INTO t VALUES (?, ?)", [("a", Decimal("0.00000001"))])
+    assert db.scalar("SELECT v FROM t WHERE k = 'a'") == "0.00000001"

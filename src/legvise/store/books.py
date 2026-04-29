@@ -7,6 +7,10 @@ later, which is a different query over a much bigger table.
 
 Both are here. What is not here is any attempt to reconstruct a book from deltas
 -- the feed handler owns that, and this package only ever sees whole snapshots.
+
+Levels go in as one batch rather than one statement each. A forty level snapshot
+written a second per market is the only write path in this package where the
+difference is worth having.
 """
 
 from __future__ import annotations
@@ -36,6 +40,15 @@ def _levels_by_side(rows: list[sqlite3.Row]) -> dict[Side, list[Level]]:
     return grouped
 
 
+def _level_rows(book: Book, snapshot_id: int) -> list[tuple[object, ...]]:
+    """Every level of a snapshot as one parameter set each, in book order."""
+    return [
+        (snapshot_id, side.value, rank, level.price, level.size)
+        for side in (Side.BID, Side.ASK)
+        for rank, level in enumerate(book.side(side))
+    ]
+
+
 class BookStore:
     """The snapshot and level tables."""
 
@@ -56,12 +69,10 @@ class BookStore:
                 ),
             )
             snapshot_id = int(cursor.lastrowid or 0)
-            for side in (Side.BID, Side.ASK):
-                for rank, level in enumerate(book.side(side)):
-                    self._db.execute(
-                        f"INSERT INTO book_level ({_LEVEL_COLUMNS}) VALUES (?, ?, ?, ?, ?)",
-                        (snapshot_id, side.value, rank, level.price, level.size),
-                    )
+            self._db.execute_many(
+                f"INSERT INTO book_level ({_LEVEL_COLUMNS}) VALUES (?, ?, ?, ?, ?)",
+                _level_rows(book, snapshot_id),
+            )
         return snapshot_id
 
     def get(self, snapshot_id: int) -> Book:
