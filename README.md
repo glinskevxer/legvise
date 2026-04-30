@@ -113,6 +113,15 @@ legvise db vacuum
 `book_level` is the table that grows without bound. `legvise book prune` takes
 the old snapshots out and `legvise db vacuum` gives the space back.
 
+## Is anything missing
+
+```
+legvise report desk
+```
+
+One command, and a list of what is not set up. A scan that silently uses four
+of five venues looks exactly like one that used all five.
+
 ## Reading what happened
 
 ```

@@ -9,6 +9,7 @@ import click
 
 from legvise.cli.options import app, bps_text, echo_rows
 from legvise.ids import asset_code
+from legvise.report.desk_report import build_desk_status
 from legvise.report.edge_report import build_edge_report
 from legvise.report.export import (
     PLAN_FIELDS,
@@ -178,3 +179,36 @@ def inventory(ctx: click.Context, asset: str | None) -> None:
             f"{plan.asset}: transfer {plan.transferable}, then"
             f" {'sell' if plan.net_move > 0 else 'buy'} {abs(plan.net_move)}"
         )
+
+
+@group.command("desk")
+@click.pass_context
+def desk(ctx: click.Context) -> None:
+    """Say whether the desk is set up well enough to scan, and what is missing.
+
+    The gaps are the point. A scan that silently uses four of five venues looks
+    exactly like one that used all five, and this is the command that would have
+    said otherwise.
+    """
+    context = app(ctx)
+    status = build_desk_status(context.db)
+    rows = [
+        (
+            venue.code,
+            "on" if venue.active else "off",
+            str(venue.markets),
+            str(venue.books),
+            "ready" if venue.is_ready else "not ready",
+        )
+        for venue in status.venues
+    ]
+    echo_rows(rows, ("venue", "state", "markets", "books", "verdict"))
+    click.echo(f"shared markets  {len(status.shared_symbols)}")
+    click.echo(f"sessions        {status.sessions}")
+    click.echo(f"last session    {status.last_session or 'none yet'}")
+    for gap in status.gaps:
+        click.echo(f"missing         {gap}", err=True)
+    if not status.can_scan:
+        raise click.ClickException("the desk is not ready to scan")
+    if not context.quiet:
+        click.echo("the desk is ready to scan")

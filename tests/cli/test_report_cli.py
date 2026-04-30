@@ -152,3 +152,36 @@ def test_the_inventory_report_names_the_state_of_each_holding(
 ) -> None:
     desk, _, _ = planned
     assert "in band" in desk("report", "inventory").output
+
+
+def test_a_wired_desk_reports_that_it_can_scan(desk: Run) -> None:
+    assert "the desk is ready to scan" in desk("report", "desk").output
+
+
+def test_the_desk_report_counts_the_shared_markets(desk: Run) -> None:
+    assert "shared markets  1" in desk("report", "desk").output
+
+
+def test_the_desk_report_counts_the_books_on_file(scanned: tuple[Run, str]) -> None:
+    run, _ = scanned
+    line = next(
+        row for row in run("report", "desk").output.splitlines() if row.startswith("kraken")
+    )
+    assert line.split()[3] == "1"
+
+
+def test_the_desk_report_names_the_last_session(scanned: tuple[Run, str]) -> None:
+    run, session = scanned
+    assert session in run("report", "desk").output
+
+
+def test_a_desk_missing_a_volume_is_not_ready(desk: Run) -> None:
+    desk("fee", "clear-volume", "okx")
+    result = desk("report", "desk", expect=1)
+    assert "no trailing volume" in result.output
+    assert "not ready" in result.output
+
+
+def test_a_desk_with_no_venues_is_not_ready(run: Run) -> None:
+    result = run("report", "desk", expect=1)
+    assert "not ready to scan" in result.output
