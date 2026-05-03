@@ -177,6 +177,8 @@ legvise loop run --start USD --amount 10000 --min-edge-bps 3
 - **Every refusal quotes a clause.** The rule book is in `docs/rules.md`,
   generated from the code that enforces it, and the clause is stored on the plan
   so refusals can be counted later.
+- **The layer map is generated too.** `docs/architecture.md` is built from the
+  imports the modules actually have, not from what anybody meant.
 - **Layers point downwards.** `model` knows nothing about `store`, `market`
   knows nothing about `cli`, and a check in `legvise.tools` keeps it that way.
 - **The book of record is one SQLite file.** An operator can copy it to a laptop

@@ -17,6 +17,7 @@ from collections.abc import Callable
 from typing import Final
 
 from legvise.tools import (
+    build_architecture,
     build_glossary,
     build_rules,
     check_cli,
@@ -62,6 +63,7 @@ GENERATED: Final[tuple[tuple[str, Callable[[], bool]], ...]] = (
     ("schema_dump", schema_dump.is_current),
     ("build_rules", build_rules.is_current),
     ("build_glossary", build_glossary.is_current),
+    ("build_architecture", build_architecture.is_current),
 )
 
 

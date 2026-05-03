@@ -30,7 +30,7 @@ def test_every_generator_is_in_the_release_gate() -> None:
     on_disk = {
         path.stem
         for path in (package_root() / "tools").glob("*.py")
-        if path.stem in {"schema_dump", "build_rules", "build_glossary"}
+        if path.stem.startswith(("schema_", "build_"))
     }
     assert {name for name, _ in GENERATED} == on_disk
 
