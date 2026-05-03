@@ -195,6 +195,7 @@ Beyond lint, types and tests, the repository checks itself:
 | `check_sql` | `SELECT *`, an interpolated value, or SQL outside the store |
 | `check_indexes` | a foreign key with no index on the child side |
 | `check_migrations` | a migration edited after it shipped |
+| `check_markers` | a leftover TODO, or a test that is quietly skipped |
 | `check_naming` | a test name that is a label rather than a sentence |
 | `check_rules` | a clause nobody raises, or a refusal with no clause |
 | `check_errors` | an exception the package does not own |

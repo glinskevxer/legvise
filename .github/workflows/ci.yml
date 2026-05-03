@@ -44,6 +44,7 @@ jobs:
       - run: python -m legvise.tools.check_sql
       - run: python -m legvise.tools.check_indexes
       - run: python -m legvise.tools.check_migrations
+      - run: python -m legvise.tools.check_markers
       - run: python -m legvise.tools.check_naming
       - run: python -m legvise.tools.check_rules
       - run: python -m legvise.tools.check_errors
