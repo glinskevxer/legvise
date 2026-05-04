@@ -202,6 +202,7 @@ Beyond lint, types and tests, the repository checks itself:
 | `check_rules` | a clause nobody raises, or a refusal with no clause |
 | `check_errors` | an exception the package does not own |
 | `check_package` | metadata that disagrees with the code |
+| `check_changelog` | a changelog that lags the version the code reports |
 | `check_readme` | this file describing a command that does not exist |
 
 Run everything the way CI does:

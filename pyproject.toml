@@ -25,7 +25,16 @@ legvise = "legvise.cli.main:main"
 packages = ["src/legvise"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src", "tests", "README.md", "constraints.txt", "check.sh", "migrations.lock"]
+include = [
+  "src",
+  "tests",
+  "docs",
+  "README.md",
+  "CHANGELOG.md",
+  "constraints.txt",
+  "check.sh",
+  "migrations.lock",
+]
 
 [tool.ruff]
 line-length = 100

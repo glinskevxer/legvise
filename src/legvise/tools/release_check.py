@@ -20,6 +20,7 @@ from legvise.tools import (
     build_architecture,
     build_glossary,
     build_rules,
+    check_changelog,
     check_cli,
     check_docstrings,
     check_errors,
@@ -57,6 +58,7 @@ GATES: Final[tuple[tuple[str, Gate], ...]] = (
     ("check_errors", check_errors.problems),
     ("check_package", check_package.problems),
     ("check_readme", check_readme.problems),
+    ("check_changelog", check_changelog.problems),
 )
 
 GENERATED: Final[tuple[tuple[str, Callable[[], bool]], ...]] = (
