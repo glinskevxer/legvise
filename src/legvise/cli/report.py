@@ -12,7 +12,9 @@ from legvise.ids import asset_code
 from legvise.report.desk_report import build_desk_status
 from legvise.report.edge_report import build_edge_report
 from legvise.report.export import (
+    LEG_FIELDS,
     PLAN_FIELDS,
+    leg_rows,
     plan_rows,
     write_csv,
     write_edge_json,
@@ -212,3 +214,33 @@ def desk(ctx: click.Context) -> None:
         raise click.ClickException("the desk is not ready to scan")
     if not context.quiet:
         click.echo("the desk is ready to scan")
+
+
+@group.command("export-legs")
+@click.argument("session")
+@click.option(
+    "--out",
+    "target",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=None,
+    help="Where to write it. Standard output if not given.",
+)
+@click.option("--actionable", is_flag=True, help="Skip the legs of refused plans.")
+@click.pass_context
+def export_legs(ctx: click.Context, session: str, target: Path | None, actionable: bool) -> None:
+    """Export one session's legs, one row per order.
+
+    A venue statement is per order and a plan is two of them, so reconciling a
+    plan export against one means doing the pairing by hand.
+    """
+    context = app(ctx)
+    store = PlanStore(context.db)
+    plans = store.actionable(session) if actionable else store.for_session(session)
+    handle = sys.stdout if target is None else target.open("w", encoding="utf-8", newline="")
+    try:
+        count = write_csv(handle, leg_rows(plans), LEG_FIELDS)
+    finally:
+        if target is not None:
+            handle.close()
+    if target is not None and not context.quiet:
+        click.echo(f"wrote {count} legs to {target}")

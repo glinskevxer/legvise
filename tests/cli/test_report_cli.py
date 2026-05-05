@@ -185,3 +185,24 @@ def test_a_desk_missing_a_volume_is_not_ready(desk: Run) -> None:
 def test_a_desk_with_no_venues_is_not_ready(run: Run) -> None:
     result = run("report", "desk", expect=1)
     assert "not ready to scan" in result.output
+
+
+def test_the_leg_export_writes_one_row_per_order(planned: tuple[Run, str, str]) -> None:
+    desk, session, _ = planned
+    lines = desk("report", "export-legs", session).output.strip().splitlines()
+    assert lines[0].startswith("plan_ref,leg_index")
+    assert len(lines) == 3
+
+
+def test_the_leg_export_to_a_file_counts_the_legs(
+    planned: tuple[Run, str, str], tmp_path: Path
+) -> None:
+    desk, session, _ = planned
+    target = tmp_path / "legs.csv"
+    assert "wrote 2 legs" in desk("report", "export-legs", session, "--out", str(target)).output
+
+
+def test_the_leg_export_can_skip_the_refused_plans(planned: tuple[Run, str, str]) -> None:
+    desk, session, _ = planned
+    lines = desk("report", "export-legs", session, "--actionable").output.strip().splitlines()
+    assert len(lines) == 3

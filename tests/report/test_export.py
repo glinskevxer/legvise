@@ -15,7 +15,9 @@ from legvise.model.plan import Plan, PlanKind, PlanStatus
 from legvise.money import dec
 from legvise.report.edge_report import EdgeReport
 from legvise.report.export import (
+    LEG_FIELDS,
     PLAN_FIELDS,
+    leg_rows,
     plan_rows,
     write_csv,
     write_edge_json,
@@ -167,3 +169,44 @@ def test_the_json_ends_with_a_newline() -> None:
     handle = io.StringIO()
     write_edge_json(handle, EdgeReport(lines=()))
     assert handle.getvalue().endswith("\n")
+
+
+def test_a_leg_row_carries_every_field() -> None:
+    row = leg_rows([a_plan()])[0]
+    assert set(row) == set(LEG_FIELDS)
+
+
+def test_a_plan_contributes_one_row_per_leg() -> None:
+    assert len(leg_rows([a_plan()])) == 2
+
+
+def test_a_leg_row_names_the_side_in_words() -> None:
+    rows = leg_rows([a_plan()])
+    assert rows[0]["side"] == "buy"
+    assert rows[1]["side"] == "sell"
+
+
+def test_a_leg_row_numbers_the_legs_from_zero() -> None:
+    rows = leg_rows([a_plan()])
+    assert [row["leg_index"] for row in rows] == ["0", "1"]
+
+
+def test_a_leg_row_carries_the_plan_it_belongs_to() -> None:
+    assert all(row["plan_ref"] == a_plan().ref for row in leg_rows([a_plan()]))
+
+
+def test_a_leg_row_writes_its_notional_in_plain_notation() -> None:
+    assert leg_rows([a_plan()])[0]["notional"] == "0.00000100"
+
+
+def test_the_leg_export_writes_a_header_and_a_row_each() -> None:
+    handle = io.StringIO()
+    written = write_csv(handle, leg_rows([a_plan()]), LEG_FIELDS)
+    assert written == 2
+    assert handle.getvalue().splitlines()[0] == ",".join(LEG_FIELDS)
+
+
+def test_the_leg_export_with_no_plans_still_writes_the_header() -> None:
+    handle = io.StringIO()
+    assert write_csv(handle, leg_rows([]), LEG_FIELDS) == 0
+    assert handle.getvalue().strip() == ",".join(LEG_FIELDS)

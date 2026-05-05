@@ -27,7 +27,9 @@ from legvise.report.edge_report import EdgeReport
 from legvise.report.session_report import SessionSummary
 
 __all__ = [
+    "LEG_FIELDS",
     "PLAN_FIELDS",
+    "leg_rows",
     "plan_rows",
     "write_csv",
     "write_edge_json",
@@ -47,6 +49,22 @@ PLAN_FIELDS = (
     "slippage_bps",
     "rebalance_bps",
     "net_bps",
+)
+
+
+LEG_FIELDS = (
+    "plan_ref",
+    "leg_index",
+    "venue",
+    "symbol",
+    "side",
+    "price",
+    "size",
+    "notional",
+    "fee_bps",
+    "fee_amount",
+    "levels_swept",
+    "slippage_bps",
 )
 
 
@@ -76,6 +94,33 @@ def plan_rows(plans: Iterable[Plan]) -> list[dict[str, str]]:
             "net_bps": _text(plan.net_bps),
         }
         for plan in plans
+    ]
+
+
+def leg_rows(plans: Iterable[Plan]) -> list[dict[str, str]]:
+    """Every leg of every plan as a flat row, keys in `LEG_FIELDS` order.
+
+    The plan export is what a risk team reconciles against; this is what a
+    trader reconciles against, because a venue's own statement is per order and
+    a plan is two of them.
+    """
+    return [
+        {
+            "plan_ref": plan.ref,
+            "leg_index": str(index),
+            "venue": leg.venue,
+            "symbol": str(leg.symbol),
+            "side": "buy" if leg.is_buy else "sell",
+            "price": _text(leg.price),
+            "size": _text(leg.size),
+            "notional": _text(leg.notional),
+            "fee_bps": _text(leg.fee_bps),
+            "fee_amount": _text(leg.fee_amount),
+            "levels_swept": str(leg.levels_swept),
+            "slippage_bps": _text(leg.slippage_bps),
+        }
+        for plan in plans
+        for index, leg in enumerate(plan.legs)
     ]
 
 
