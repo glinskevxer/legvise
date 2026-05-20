@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
-
 import click
 
 from legvise.cli.options import app, bps_text, echo_rows
-from legvise.ids import asset_code, venue_code
+from legvise.cli.parsers import pair_map, triple_map
 from legvise.ledger.reconcile import reconcile
 from legvise.model.inventory import Band, Position
 from legvise.money import dec
@@ -166,7 +164,7 @@ def concentration(
     context = app(ctx)
     store = InventoryStore(context.db)
     positions = tuple(p for asset in store.assets_held() for p in store.positions_of(asset))
-    priced = measure(positions, _marks(marks))
+    priced = measure(positions, pair_map(marks, shape="ASSET:PRICE", field="mark"))
     click.echo(f"desk value  {priced.total_value}")
     rows = [
         (
@@ -185,16 +183,6 @@ def concentration(
     require_within(priced, limits)
     if not context.quiet:
         click.echo("inside both concentration limits")
-
-
-def _marks(given: tuple[str, ...]) -> dict[str, Decimal]:
-    found: dict[str, Decimal] = {}
-    for entry in given:
-        parts = entry.split(":")
-        if len(parts) != 2:
-            raise click.BadParameter(f"expected ASSET:PRICE, got {entry!r}")
-        found[asset_code(parts[0])] = dec(parts[1], field="mark")
-    return found
 
 
 def _venue_spread(priced: Concentration, asset: str) -> str:
@@ -235,7 +223,11 @@ def reconcile_balances(
     context = app(ctx)
     store = InventoryStore(context.db)
     positions = tuple(p for asset in store.assets_held() for p in store.positions_of(asset))
-    found = reconcile(positions, _holdings(holds), _tolerances(tolerances))
+    found = reconcile(
+        positions,
+        triple_map(holds, shape="VENUE:ASSET:AMOUNT", field="amount"),
+        pair_map(tolerances, shape="ASSET:AMOUNT", field="tolerance"),
+    )
     rows = [
         (
             item.venue,
@@ -257,23 +249,3 @@ def reconcile_balances(
         )
     if not context.quiet:
         click.echo("the desk and the venues agree")
-
-
-def _holdings(given: tuple[str, ...]) -> dict[tuple[str, str], Decimal]:
-    found: dict[tuple[str, str], Decimal] = {}
-    for entry in given:
-        parts = entry.split(":")
-        if len(parts) != 3:
-            raise click.BadParameter(f"expected VENUE:ASSET:AMOUNT, got {entry!r}")
-        found[(venue_code(parts[0]), asset_code(parts[1]))] = dec(parts[2], field="amount")
-    return found
-
-
-def _tolerances(given: tuple[str, ...]) -> dict[str, Decimal]:
-    found: dict[str, Decimal] = {}
-    for entry in given:
-        parts = entry.split(":")
-        if len(parts) != 2:
-            raise click.BadParameter(f"expected ASSET:AMOUNT, got {entry!r}")
-        found[asset_code(parts[0])] = dec(parts[1], field="tolerance")
-    return found

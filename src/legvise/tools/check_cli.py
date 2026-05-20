@@ -24,7 +24,7 @@ from legvise.tools.walk import package_root, report
 
 __all__ = ["command_paths", "main", "problems", "registered_groups"]
 
-EXEMPT_MODULES = frozenset({"main", "options"})
+EXEMPT_MODULES = frozenset({"main", "options", "parsers"})
 
 
 def registered_groups() -> tuple[str, ...]:

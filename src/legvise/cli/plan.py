@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
-
 import click
 
 from legvise.cli.options import app, bps_text, echo_rows
-from legvise.ids import venue_code
+from legvise.cli.parsers import venue_map
 from legvise.model.plan import Plan
 from legvise.money import dec
 from legvise.scan.ranker import RankTerms, rank
@@ -130,7 +128,7 @@ def rank_plans(
     context = app(ctx)
     terms = RankTerms(
         depth_penalty_bps=dec(depth_penalty_bps, field="depth_penalty_bps"),
-        venue_weights=_weights(weights) or None,
+        venue_weights=venue_map(weights, shape="VENUE:WEIGHT", field="venue_weight") or None,
     )
     ordered = rank(PlanStore(context.db).for_session(session), terms)
     rows = [
@@ -149,16 +147,6 @@ def rank_plans(
     echo_rows(rows, ("plan", "venues", "notional", "net", "adjusted", "penalty", "levels", "makes"))
     if not ordered and not context.quiet:
         click.echo("nothing was actionable in that session", err=True)
-
-
-def _weights(given: tuple[str, ...]) -> dict[str, Decimal]:
-    found: dict[str, Decimal] = {}
-    for entry in given:
-        parts = entry.split(":")
-        if len(parts) != 2:
-            raise click.BadParameter(f"expected VENUE:WEIGHT, got {entry!r}")
-        found[venue_code(parts[0])] = dec(parts[1], field="venue_weight")
-    return found
 
 
 @group.command("check")

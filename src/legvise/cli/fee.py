@@ -5,6 +5,7 @@ from __future__ import annotations
 import click
 
 from legvise.cli.options import app, echo_rows
+from legvise.cli.parsers import triple
 from legvise.fees.balance import cycles_funded, funding_for, require_funded
 from legvise.fees.ladder import resolve, rung_index
 from legvise.fees.quote import FeeContext, charge_for
@@ -34,19 +35,12 @@ def set_ladder(ctx: click.Context, venue: str, rungs: tuple[str, ...]) -> None:
     ladder is replaced whole, never edited a rung at a time.
     """
     context = app(ctx)
-    parsed = tuple(_split_rung(rung) for rung in rungs)
+    parsed = tuple(triple(rung, "VOLUME:MAKER:TAKER") for rung in rungs)
     ladder = FeeLadder.build(venue, parsed)
     with context.db.tx():
         FeeStore(context.db).put_ladder(ladder)
     if not context.quiet:
         click.echo(f"{ladder.venue} ladder has {ladder.depth()} rungs")
-
-
-def _split_rung(text: str) -> tuple[str, str, str]:
-    parts = text.split(":")
-    if len(parts) != 3:
-        raise click.BadParameter(f"expected volume:maker:taker, got {text!r}")
-    return (parts[0], parts[1], parts[2])
 
 
 @group.command("show-ladder")

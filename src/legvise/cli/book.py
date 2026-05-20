@@ -13,6 +13,7 @@ import sys
 import click
 
 from legvise.cli.options import app, bps_text, echo_rows
+from legvise.cli.parsers import split_on_colons, triple
 from legvise.clock import parse_instant
 from legvise.market.decay import confidence_in
 from legvise.market.imbalance import disagreement, imbalance_at, leans_toward
@@ -58,8 +59,8 @@ def load(
         venue,
         symbol,
         observed_at=at,
-        bids=tuple(_split(level) for level in bids),
-        asks=tuple(_split(level) for level in asks),
+        bids=tuple(_level(level) for level in bids),
+        asks=tuple(_level(level) for level in asks),
         sequence=sequence,
     )
     with context.db.tx():
@@ -68,11 +69,10 @@ def load(
         click.echo(f"{book.venue} {book.symbol} {len(book.bids)}x{len(book.asks)} levels")
 
 
-def _split(level: str) -> tuple[str, str]:
-    parts = level.split(":")
-    if len(parts) != 2:
-        raise click.BadParameter(f"expected price:size, got {level!r}")
-    return (parts[0], parts[1])
+def _level(entry: str) -> tuple[str, str]:
+    """One `price:size` option value."""
+    price, size = split_on_colons(entry, "PRICE:SIZE")
+    return (price, size)
 
 
 def _read_levels(text: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
@@ -82,10 +82,7 @@ def _read_levels(text: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
         line = raw.strip()
         if not line:
             continue
-        parts = line.split(":")
-        if len(parts) != 3:
-            raise click.BadParameter(f"expected side:price:size, got {line!r}")
-        side, price, size = parts
+        side, price, size = triple(line, "SIDE:PRICE:SIZE")
         target = bids if side.strip().lower() == "bid" else asks
         target.append(f"{price}:{size}")
     return (tuple(bids), tuple(asks))

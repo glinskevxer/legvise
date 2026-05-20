@@ -28,7 +28,7 @@ def test_setting_a_ladder_reports_how_many_rungs_it_has(seeded: Run) -> None:
 
 def test_a_rung_that_is_not_three_parts_is_a_usage_error(seeded: Run) -> None:
     result = seeded("fee", "set-ladder", "kraken", "0:10", expect=2)
-    assert "volume:maker:taker" in result.output
+    assert "VOLUME:MAKER:TAKER" in result.output
 
 
 def test_a_ladder_that_does_not_start_at_zero_is_refused(seeded: Run) -> None:

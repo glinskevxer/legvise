@@ -38,7 +38,7 @@ def test_loading_a_snapshot_reports_the_level_counts(seeded: Run) -> None:
 
 def test_a_level_that_is_not_price_and_size_is_a_usage_error(seeded: Run) -> None:
     result = seeded("book", "load", "kraken", "BTC-USD", "--bid", "99", expect=2)
-    assert "price:size" in result.output
+    assert "PRICE:SIZE" in result.output
 
 
 def test_a_crossed_snapshot_is_refused(seeded: Run) -> None:
