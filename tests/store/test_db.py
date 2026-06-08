@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from legvise.errors import BadArgument, Conflict
+from legvise.errors import BadArgument, Conflict, NotFound
 from legvise.store.db import Database, connect
 
 
@@ -135,3 +135,51 @@ def test_a_batch_inside_a_rolled_back_block_leaves_nothing(db: Database) -> None
 def test_a_batch_of_decimals_stores_them_in_plain_notation(db: Database) -> None:
     db.execute_many("INSERT INTO t VALUES (?, ?)", [("a", Decimal("0.00000001"))])
     assert db.scalar("SELECT v FROM t WHERE k = 'a'") == "0.00000001"
+
+
+def test_a_read_only_book_answers_a_query(tmp_path: Path) -> None:
+    target = tmp_path / "book.sqlite3"
+    writer = Database.open(target)
+    writer.execute("CREATE TABLE t (k TEXT PRIMARY KEY, v TEXT NOT NULL)")
+    writer.execute("INSERT INTO t VALUES ('a', '1')")
+    writer.close()
+    reader = Database.open_read_only(target)
+    assert reader.scalar("SELECT v FROM t WHERE k = 'a'") == "1"
+    reader.close()
+
+
+def test_a_read_only_book_refuses_a_write(tmp_path: Path) -> None:
+    target = tmp_path / "book.sqlite3"
+    writer = Database.open(target)
+    writer.execute("CREATE TABLE t (k TEXT PRIMARY KEY, v TEXT NOT NULL)")
+    writer.close()
+    reader = Database.open_read_only(target)
+    with pytest.raises(BadArgument):
+        reader.execute("INSERT INTO t VALUES ('a', '1')")
+    reader.close()
+
+
+def test_a_read_only_book_refuses_a_schema_change(tmp_path: Path) -> None:
+    target = tmp_path / "book.sqlite3"
+    writer = Database.open(target)
+    writer.execute("CREATE TABLE t (k TEXT PRIMARY KEY)")
+    writer.close()
+    reader = Database.open_read_only(target)
+    with pytest.raises(BadArgument):
+        reader.execute("CREATE TABLE u (k TEXT PRIMARY KEY)")
+    reader.close()
+
+
+def test_a_read_only_book_still_enforces_foreign_keys(tmp_path: Path) -> None:
+    target = tmp_path / "book.sqlite3"
+    writer = Database.open(target)
+    writer.execute("CREATE TABLE t (k TEXT PRIMARY KEY)")
+    writer.close()
+    reader = Database.open_read_only(target)
+    assert reader.scalar("PRAGMA foreign_keys") == 1
+    reader.close()
+
+
+def test_opening_a_book_that_is_not_there_read_only_is_a_not_found(tmp_path: Path) -> None:
+    with pytest.raises(NotFound):
+        Database.open_read_only(tmp_path / "nowhere.sqlite3")

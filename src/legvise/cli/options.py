@@ -47,10 +47,23 @@ class Context:
         return self.clock.now().isoformat()
 
 
-def open_context(path: str | Path, *, clock: Clock | None = None, quiet: bool = False) -> Context:
-    """Open the book of record and bring it up to the current schema."""
-    handle = Database.open(path)
+def open_context(
+    path: str | Path,
+    *,
+    clock: Clock | None = None,
+    quiet: bool = False,
+    read_only: bool = False,
+) -> Context:
+    """Open the book of record and bring it up to the current schema.
+
+    A read only context skips the migration, because it could not run one, and
+    because a reader that quietly migrated the file it was asked to read would
+    be doing the one thing read only is for preventing.
+    """
     ticker = clock or SystemClock()
+    if read_only:
+        return Context(db=Database.open_read_only(path), clock=ticker, quiet=quiet)
+    handle = Database.open(path)
     install(handle, applied_at=ticker.now().isoformat())
     return Context(db=handle, clock=ticker, quiet=quiet)
 

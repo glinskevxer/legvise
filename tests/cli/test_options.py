@@ -11,7 +11,7 @@ from click.testing import CliRunner
 
 from legvise.cli.options import DeskGroup, bps_text, echo_rows, open_context
 from legvise.clock import FixedClock
-from legvise.errors import NotFound
+from legvise.errors import BadArgument, NotFound
 from tests.conftest import SESSION_START
 
 
@@ -93,3 +93,27 @@ def test_the_group_leaves_other_errors_alone() -> None:
 
     with pytest.raises(RuntimeError):
         CliRunner().invoke(cli, ["boom"], catch_exceptions=False)
+
+
+def test_a_read_only_context_opens_an_existing_book(tmp_path: Path) -> None:
+    target = tmp_path / "book.sqlite3"
+    open_context(target, clock=FixedClock(SESSION_START)).db.close()
+    context = open_context(target, clock=FixedClock(SESSION_START), read_only=True)
+    assert context.db.scalar("SELECT count(*) FROM venue") == 0
+    context.db.close()
+
+
+def test_a_read_only_context_refuses_a_write(tmp_path: Path) -> None:
+    target = tmp_path / "book.sqlite3"
+    open_context(target, clock=FixedClock(SESSION_START)).db.close()
+    context = open_context(target, clock=FixedClock(SESSION_START), read_only=True)
+    with pytest.raises(BadArgument):
+        context.db.execute(
+            "INSERT INTO venue VALUES ('kraken', 'Kraken', 750, '35', '250000', 0, 1)"
+        )
+    context.db.close()
+
+
+def test_a_read_only_context_on_a_missing_book_is_a_not_found(tmp_path: Path) -> None:
+    with pytest.raises(NotFound):
+        open_context(tmp_path / "nowhere.sqlite3", read_only=True)

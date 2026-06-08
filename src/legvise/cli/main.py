@@ -44,10 +44,15 @@ __all__ = ["cli", "main"]
     help="Path to the book of record.",
 )
 @click.option("--quiet", is_flag=True, help="Print results only, no commentary.")
+@click.option(
+    "--read-only",
+    is_flag=True,
+    help="Open the book so nothing can write to it, and skip the migration.",
+)
 @click.pass_context
-def cli(ctx: click.Context, db_path: Path, quiet: bool) -> None:
+def cli(ctx: click.Context, db_path: Path, quiet: bool, read_only: bool) -> None:
     """Scan for cross-venue arbitrage against books the desk already has."""
-    ctx.obj = open_context(db_path, quiet=quiet)
+    ctx.obj = open_context(db_path, quiet=quiet, read_only=read_only)
     ctx.call_on_close(_close)
 
 

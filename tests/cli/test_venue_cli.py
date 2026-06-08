@@ -120,3 +120,42 @@ def test_quiet_prints_nothing_on_a_write(run: Run, book: Path) -> None:
     )
     assert result.exit_code == 0
     assert result.output == ""
+
+
+def test_a_read_only_run_can_still_list(seeded: Run, book: Path) -> None:
+    from click.testing import CliRunner
+
+    from legvise.cli.main import cli
+
+    result = CliRunner().invoke(
+        cli, ["--db", str(book), "--read-only", "venue", "list"], catch_exceptions=False
+    )
+    assert result.exit_code == 0
+    assert "kraken" in result.output
+
+
+def test_a_read_only_run_cannot_add_a_venue(seeded: Run, book: Path) -> None:
+    from click.testing import CliRunner
+
+    from legvise.cli.main import cli
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "--db",
+            str(book),
+            "--read-only",
+            "venue",
+            "add",
+            "bitstamp",
+            "Bitstamp",
+            "--staleness-ms",
+            "750",
+            "--depth-bps",
+            "35",
+            "--cap",
+            "250000",
+        ],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 1

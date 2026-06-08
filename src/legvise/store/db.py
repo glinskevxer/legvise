@@ -20,7 +20,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Final
 
-from legvise.errors import BadArgument, Conflict
+from legvise.errors import BadArgument, Conflict, NotFound
 
 __all__ = ["Database", "connect"]
 
@@ -30,6 +30,10 @@ _PRAGMAS: Final = (
     "PRAGMA busy_timeout = 4000",
     "PRAGMA synchronous = NORMAL",
 )
+
+#: A read only connection cannot set the journal mode, so it gets the subset
+#: that does not write to the file.
+_READ_PRAGMAS: Final = ("PRAGMA foreign_keys = ON", "PRAGMA busy_timeout = 4000")
 
 Param = str | int | float | bytes | None
 
@@ -47,12 +51,23 @@ def _adapt_decimal(value: Decimal) -> str:
 sqlite3.register_adapter(Decimal, _adapt_decimal)
 
 
-def connect(path: str | Path) -> sqlite3.Connection:
-    """Open the book of record with the pragmas the schema assumes."""
-    target = str(path)
-    conn = sqlite3.connect(target, isolation_level=None)
+def connect(path: str | Path, *, read_only: bool = False) -> sqlite3.Connection:
+    """Open the book of record with the pragmas the schema assumes.
+
+    `read_only` opens through SQLite's URI form, which refuses every write at
+    the driver rather than by convention. A report that opens read only cannot
+    migrate the file it is reading, which is the accident worth preventing: a
+    dashboard pointed at production should not be able to apply a migration
+    because somebody deployed it there first.
+    """
+    if read_only:
+        conn = sqlite3.connect(
+            f"file:{Path(path).as_posix()}?mode=ro", uri=True, isolation_level=None
+        )
+    else:
+        conn = sqlite3.connect(str(path), isolation_level=None)
     conn.row_factory = sqlite3.Row
-    for pragma in _PRAGMAS:
+    for pragma in _PRAGMAS if not read_only else _READ_PRAGMAS:
         conn.execute(pragma)
     return conn
 
@@ -82,6 +97,18 @@ class Database:
     def open(cls, path: str | Path) -> Database:
         """Open a database at a path, creating the file if it is not there."""
         return cls(connect(path))
+
+    @classmethod
+    def open_read_only(cls, path: str | Path) -> Database:
+        """Open an existing book that nothing can write to.
+
+        The file has to be there. SQLite will not create one in read only mode,
+        and a report that silently opened an empty database would answer every
+        question with nothing.
+        """
+        if not Path(path).exists():
+            raise NotFound("book of record", str(path))
+        return cls(connect(path, read_only=True))
 
     @classmethod
     def in_memory(cls) -> Database:
