@@ -168,3 +168,36 @@ def test_dropping_a_session_takes_its_plans_and_legs(db: Database, store: PlanSt
     db.execute("DELETE FROM scan_session WHERE ref = ?", (SESSION,))
     assert db.scalar("SELECT count(*) FROM plan") == 0
     assert db.scalar("SELECT count(*) FROM plan_leg") == 0
+
+
+def test_a_batch_writes_every_plan(store: PlanStore) -> None:
+    assert store.add_all((a_plan(0), a_plan(1), a_plan(2)), session_ref=SESSION) == 3
+    assert len(store.for_session(SESSION)) == 3
+
+
+def test_a_batch_writes_every_leg(db: Database, store: PlanStore) -> None:
+    store.add_all((a_plan(0), a_plan(1)), session_ref=SESSION)
+    assert db.scalar("SELECT count(*) FROM plan_leg") == 4
+
+
+def test_an_empty_batch_writes_nothing_and_says_so(store: PlanStore) -> None:
+    assert store.add_all((), session_ref=SESSION) == 0
+
+
+def test_a_batch_that_breaks_leaves_nothing_behind(db: Database, store: PlanStore) -> None:
+    with pytest.raises(Exception):  # noqa: B017 - sqlite reports the key generically
+        store.add_all((a_plan(0), a_plan(0)), session_ref=SESSION)
+    assert db.scalar("SELECT count(*) FROM plan") == 0
+    assert db.scalar("SELECT count(*) FROM plan_leg") == 0
+
+
+def test_a_batch_reads_back_the_same_as_one_at_a_time(store: PlanStore) -> None:
+    store.add_all((a_plan(0), a_plan(1)), session_ref=SESSION)
+    assert store.get(f"{SESSION}/P000") == a_plan(0)
+    assert store.get(f"{SESSION}/P001") == a_plan(1)
+
+
+def test_a_batch_keeps_the_legs_in_order(store: PlanStore) -> None:
+    store.add_all((a_plan(0), a_plan(1)), session_ref=SESSION)
+    read = store.get(f"{SESSION}/P001")
+    assert [leg.venue for leg in read.legs] == ["kraken", "okx"]

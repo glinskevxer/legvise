@@ -101,13 +101,14 @@ class Scanner:
         skipped: list[str] = []
         ledger = _Ledger(ref, to_text(now))
         written = 0
+        priced: list[Plan] = []
         for symbol in symbols:
             views = self._views_for(symbol, skipped, ledger)
             ledger.note(Stage.LOADED, str(symbol), f"{len(views)} venues have a two sided book")
-            for plan in self._pairs(symbol, views, ref, now, ledger, start_index=written):
-                with self.db.tx():
-                    plans.add(plan, session_ref=ref)
-                written += 1
+            found = self._pairs(symbol, views, ref, now, ledger, start_index=written)
+            priced.extend(found)
+            written += len(found)
+        plans.add_all(tuple(priced), session_ref=ref)
         DecisionStore(self.db).add_all(ledger.taken())
         return ScanReport(
             session=ref,

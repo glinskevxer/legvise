@@ -61,6 +61,44 @@ def _read_leg(row: sqlite3.Row) -> Leg:
     )
 
 
+def _plan_row(plan: Plan, session_ref: str) -> tuple[object, ...]:
+    """One plan as the parameter set its INSERT takes."""
+    return (
+        plan.ref,
+        session_ref,
+        plan.kind.value,
+        symbol_text(plan.symbol),
+        plan.notional,
+        plan.gross_bps,
+        plan.fee_bps,
+        plan.slippage_bps,
+        plan.rebalance_bps,
+        plan.net_bps,
+        plan.status.value,
+        plan.clause,
+    )
+
+
+def _leg_rows(plan: Plan) -> list[tuple[object, ...]]:
+    """Every leg of a plan as one parameter set each, in leg order."""
+    return [
+        (
+            plan.ref,
+            index,
+            leg.venue,
+            symbol_text(leg.symbol),
+            leg.takes.value,
+            leg.price,
+            leg.size,
+            leg.fee_bps,
+            leg.fee_amount,
+            leg.levels_swept,
+            leg.slippage_bps,
+        )
+        for index, leg in enumerate(plan.legs)
+    ]
+
+
 class PlanStore:
     """The session, plan and leg tables."""
 
@@ -102,44 +140,29 @@ class PlanStore:
         return tuple(SessionRow(r) for r in rows)
 
     def add(self, plan: Plan, *, session_ref: str) -> Plan:
-        """Write a plan and its legs."""
-        with self._db.tx():
-            self._db.execute(
-                f"INSERT INTO plan ({_PLAN_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (
-                    plan.ref,
-                    session_ref,
-                    plan.kind.value,
-                    symbol_text(plan.symbol),
-                    plan.notional,
-                    plan.gross_bps,
-                    plan.fee_bps,
-                    plan.slippage_bps,
-                    plan.rebalance_bps,
-                    plan.net_bps,
-                    plan.status.value,
-                    plan.clause,
-                ),
-            )
-            for index, leg in enumerate(plan.legs):
-                self._db.execute(
-                    f"INSERT INTO plan_leg ({_LEG_COLUMNS})"
-                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    (
-                        plan.ref,
-                        index,
-                        leg.venue,
-                        symbol_text(leg.symbol),
-                        leg.takes.value,
-                        leg.price,
-                        leg.size,
-                        leg.fee_bps,
-                        leg.fee_amount,
-                        leg.levels_swept,
-                        leg.slippage_bps,
-                    ),
-                )
+        """Write one plan and its legs."""
+        self.add_all((plan,), session_ref=session_ref)
         return plan
+
+    def add_all(self, plans: tuple[Plan, ...], *, session_ref: str) -> int:
+        """Write a batch of plans and their legs in one transaction.
+
+        A scan over ten markets on four venues writes a hundred and twenty
+        plans. One transaction each is a hundred and twenty fsyncs on a desk
+        that has not turned synchronous off, which is most of them.
+        """
+        if not plans:
+            return 0
+        with self._db.tx():
+            self._db.execute_many(
+                f"INSERT INTO plan ({_PLAN_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [_plan_row(plan, session_ref) for plan in plans],
+            )
+            self._db.execute_many(
+                f"INSERT INTO plan_leg ({_LEG_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [row for plan in plans for row in _leg_rows(plan)],
+            )
+        return len(plans)
 
     def get(self, ref: str) -> Plan:
         """One plan by reference, legs and all."""

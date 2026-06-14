@@ -76,6 +76,7 @@ class LoopScanner:
                 wanted_size=self.start_amount,
             )
         skipped: list[str] = []
+        found: list[Plan] = []
         screened = 0
         written = 0
         searched = 0
@@ -99,9 +100,9 @@ class LoopScanner:
                 plan = self._price(cycle, books, fees, plan_ref(ref, written))
                 if plan is None:
                     continue
-                with self.db.tx():
-                    plans.add(plan, session_ref=ref)
+                found.append(plan)
                 written += 1
+        plans.add_all(tuple(found), session_ref=ref)
         return LoopReport(
             session=ref,
             venues_searched=searched,
