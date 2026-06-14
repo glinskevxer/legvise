@@ -206,3 +206,23 @@ def test_the_leg_export_can_skip_the_refused_plans(planned: tuple[Run, str, str]
     desk, session, _ = planned
     lines = desk("report", "export-legs", session, "--actionable").output.strip().splitlines()
     assert len(lines) == 3
+
+
+def test_the_venue_report_lists_both_venues(planned: tuple[Run, str, str]) -> None:
+    desk, _, _ = planned
+    output = desk("report", "venues").output
+    assert "kraken" in output
+    assert "okx" in output
+
+
+def test_the_venue_report_counts_the_sendable_plans(planned: tuple[Run, str, str]) -> None:
+    desk, _, _ = planned
+    line = next(
+        row for row in desk("report", "venues").output.splitlines() if row.startswith("kraken")
+    )
+    assert line.split()[2] == "1"
+
+
+def test_a_desk_with_no_plans_lists_no_venues(desk: Run) -> None:
+    lines = desk("report", "venues").output.strip().splitlines()
+    assert len(lines) == 2

@@ -22,6 +22,7 @@ from legvise.report.export import (
 )
 from legvise.report.inventory_report import build_inventory_report
 from legvise.report.session_report import summarise
+from legvise.report.venue_report import build_venue_report
 from legvise.store.fills import FillStore
 from legvise.store.inventory import InventoryStore
 from legvise.store.plans import PlanStore
@@ -244,3 +245,32 @@ def export_legs(ctx: click.Context, session: str, target: Path | None, actionabl
             handle.close()
     if target is not None and not context.quiet:
         click.echo(f"wrote {count} legs to {target}")
+
+
+@group.command("venues")
+@click.option("--sessions", type=int, default=20, show_default=True, help="How far back to look.")
+@click.pass_context
+def venues(ctx: click.Context, sessions: int) -> None:
+    """Say which venues are earning their place over recent sessions.
+
+    The clause column is the one to read. A venue refused on STALE.01 has a feed
+    problem; one refused on DEPTH.02 is simply too thin for the size the desk
+    trades, and those want different answers.
+    """
+    context = app(ctx)
+    report = build_venue_report(PlanStore(context.db), sessions=sessions)
+    rows = [
+        (
+            line.venue,
+            str(line.plans),
+            str(line.actionable),
+            str(line.refused),
+            str(line.notional),
+            bps_text(line.hit_rate, "0.0001"),
+            line.worst_clause or "",
+        )
+        for line in report.lines
+    ]
+    echo_rows(rows, ("venue", "plans", "sendable", "refused", "notional", "hit_rate", "worst"))
+    for venue in report.idle:
+        click.echo(f"{venue} never reached a sendable plan", err=True)

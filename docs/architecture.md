@@ -12,7 +12,7 @@ or any lower one, and `check_layers` refuses anything else.
 | `store` | 13 | 13 | `base`, `model` | SQLite, migrations, one repository per aggregate |
 | `domain` | 15 | 15 | `base`, `model`, `store` | depth, staleness, fees, bands, caps, transfer routes |
 | `scan` | 9 | 9 | `base`, `domain`, `model`, `store` | the cross venue and triangular passes, and attribution |
-| `report` | 5 | 5 | `base`, `domain`, `model`, `scan`, `store` | session, edge, inventory and desk reports |
+| `report` | 6 | 6 | `base`, `domain`, `model`, `scan`, `store` | session, edge, inventory and desk reports |
 | `cli` | 16 | 16 | `base`, `domain`, `model`, `report`, `scan`, `store` | the command tree |
 | `tools` | 22 | 0 | `base`, `cli`, `domain`, `model`, `report`, `scan`, `store` | the checks, and the documents they generate |
 
@@ -92,6 +92,7 @@ or any lower one, and `check_layers` refuses anything else.
 - `legvise.report.export`
 - `legvise.report.inventory_report`
 - `legvise.report.session_report`
+- `legvise.report.venue_report`
 
 ## `cli`
 
@@ -137,4 +138,4 @@ or any lower one, and `check_layers` refuses anything else.
 - `legvise.tools.smoke`
 - `legvise.tools.walk`
 
-97 modules across 8 layers.
+98 modules across 8 layers.
