@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from legvise.errors import BadArgument, Conflict, NotFound
-from legvise.store.db import Database, connect
+from legvise.store.db import Database, connect, copy_into_memory
 
 
 @pytest.fixture()
@@ -183,3 +183,37 @@ def test_a_read_only_book_still_enforces_foreign_keys(tmp_path: Path) -> None:
 def test_opening_a_book_that_is_not_there_read_only_is_a_not_found(tmp_path: Path) -> None:
     with pytest.raises(NotFound):
         Database.open_read_only(tmp_path / "nowhere.sqlite3")
+
+
+def test_a_copy_carries_the_schema_and_the_rows(db: Database) -> None:
+    db.execute("INSERT INTO t VALUES ('a', '1')")
+    copy = copy_into_memory(db)
+    assert copy.scalar("SELECT v FROM t WHERE k = 'a'") == "1"
+    copy.close()
+
+
+def test_writing_to_a_copy_leaves_the_original_alone(db: Database) -> None:
+    copy = copy_into_memory(db)
+    copy.execute("INSERT INTO t VALUES ('a', '1')")
+    assert copy.scalar("SELECT count(*) FROM t") == 1
+    assert db.scalar("SELECT count(*) FROM t") == 0
+    copy.close()
+
+
+def test_writing_to_the_original_leaves_the_copy_alone(db: Database) -> None:
+    copy = copy_into_memory(db)
+    db.execute("INSERT INTO t VALUES ('a', '1')")
+    assert copy.scalar("SELECT count(*) FROM t") == 0
+    copy.close()
+
+
+def test_a_copy_of_an_empty_book_is_empty(db: Database) -> None:
+    copy = copy_into_memory(db)
+    assert copy.scalar("SELECT count(*) FROM t") == 0
+    copy.close()
+
+
+def test_a_copy_keeps_foreign_keys_on(db: Database) -> None:
+    copy = copy_into_memory(db)
+    assert copy.scalar("PRAGMA foreign_keys") == 1
+    copy.close()

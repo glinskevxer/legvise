@@ -22,7 +22,7 @@ from typing import Any, Final
 
 from legvise.errors import BadArgument, Conflict, NotFound
 
-__all__ = ["Database", "connect"]
+__all__ = ["Database", "connect", "copy_into_memory"]
 
 _PRAGMAS: Final = (
     "PRAGMA journal_mode = WAL",
@@ -200,3 +200,16 @@ class Database:
         """The first column of the first row, or nothing."""
         row = self.query_one(sql, params)
         return None if row is None else row[0]
+
+
+def copy_into_memory(source: Database) -> Database:
+    """A throwaway copy of a book, for work that must not leave a trace.
+
+    SQLite's own backup API rather than a file copy, so it takes a consistent
+    snapshot of a database something else may be writing to. The copy has the
+    same schema and the same rows and no relationship to the original after
+    this returns: writing to it writes to memory and nothing else.
+    """
+    copy = Database.in_memory()
+    source.connection.backup(copy.connection)
+    return copy

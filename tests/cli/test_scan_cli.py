@@ -78,3 +78,27 @@ def test_the_scan_accepts_every_knob_at_once(desk: Run) -> None:
         "--stranded-bps",
         "400",
     )
+
+
+def test_a_dry_run_says_it_wrote_nothing(desk: Run) -> None:
+    assert "dry run     nothing was written" in desk("scan", "run", "--dry-run").output
+
+
+def test_a_dry_run_leaves_no_session_behind(desk: Run) -> None:
+    desk("scan", "run", "--dry-run")
+    lines = desk("scan", "sessions").output.strip().splitlines()
+    assert len(lines) == 2
+
+
+def test_a_dry_run_can_be_repeated_with_the_same_counter(desk: Run) -> None:
+    desk("scan", "run", "--dry-run")
+    desk("scan", "run", "--dry-run")
+
+
+def test_a_dry_run_prices_the_same_pairs_as_a_real_one(desk: Run) -> None:
+    desk("book", "load", "kraken", "BTC-USD", "--bid", "99.00:50", "--ask", "100.00:50")
+    desk("book", "load", "okx", "BTC-USD", "--bid", "101.00:50", "--ask", "102.00:50")
+    dry = desk("scan", "run", "--dry-run", "--window-ms", "600000").output
+    wet = desk("scan", "run", "--window-ms", "600000").output
+    assert "priced      1" in dry
+    assert "priced      1" in wet

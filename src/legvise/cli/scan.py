@@ -11,6 +11,7 @@ from legvise.routing.pricer import StoreRebalancePricer
 from legvise.routing.rebalance import CarryTerms
 from legvise.scan.direct import ScanTerms
 from legvise.scan.session import Scanner
+from legvise.store.db import copy_into_memory
 from legvise.store.networks import NetworkStore
 from legvise.store.plans import PlanStore
 
@@ -41,6 +42,11 @@ def group() -> None:
 @click.option(
     "--counter", type=int, default=0, show_default=True, help="Session number for the day."
 )
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Price everything against a throwaway copy and write nothing.",
+)
 @click.pass_context
 def run(
     ctx: click.Context,
@@ -54,11 +60,18 @@ def run(
     cycles: int,
     stranded_bps: str,
     counter: int,
+    dry_run: bool,
 ) -> None:
-    """Scan every market that is live on two or more venues."""
+    """Scan every market that is live on two or more venues.
+
+    With `--dry-run` the whole scan runs against a throwaway copy of the book,
+    so an operator can try a different edge floor or a different size without
+    leaving a session behind. The numbers are the same; nothing is written.
+    """
     context = app(ctx)
+    target = copy_into_memory(context.db) if dry_run else context.db
     scanner = Scanner(
-        db=context.db,
+        db=target,
         clock=context.clock,
         terms=ScanTerms(
             min_edge_bps=dec(min_edge_bps, field="min_edge_bps"),
@@ -74,7 +87,7 @@ def run(
             gross_used=dec("0"),
         ),
         pricer=StoreRebalancePricer(
-            networks=NetworkStore(context.db),
+            networks=NetworkStore(target),
             terms=CarryTerms(
                 carry_bps_per_hour=dec(carry_bps_hour, field="carry_bps_hour"),
                 cycles_served=cycles,
@@ -83,6 +96,8 @@ def run(
         ),
     )
     report = scanner.run(counter=counter)
+    if dry_run:
+        click.echo("dry run     nothing was written")
     click.echo(f"session     {report.session}")
     click.echo(f"symbols     {report.symbols_considered}")
     click.echo(f"priced      {report.pairs_priced}")
