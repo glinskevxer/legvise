@@ -25,7 +25,9 @@ def group() -> None:
 
 @group.command("run")
 @click.option("--min-edge-bps", default="2", show_default=True, help="Floor for the net edge.")
-@click.option("--window-ms", type=int, default=250, show_default=True, help="Pairing window.")
+@click.option(
+    "--window-ms", type=int, default=250, show_default=True, help="How far apart two books may be."
+)
 @click.option("--size", default="1", show_default=True, help="Base size the desk wants per leg.")
 @click.option("--venue-cap", default="250000", show_default=True, help="Notional cap per venue.")
 @click.option("--asset-cap", default="400000", show_default=True, help="Net cap per asset.")

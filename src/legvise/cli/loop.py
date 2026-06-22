@@ -27,7 +27,9 @@ def group() -> None:
 @click.option("--min-edge-bps", default="2", show_default=True, help="Floor for the net edge.")
 @click.option("--screen-bps", default="0", show_default=True, help="Touch edge to bother pricing.")
 @click.option("--max-hops", type=int, default=3, show_default=True, help="Longest loop to search.")
-@click.option("--counter", type=int, default=0, show_default=True, help="Session number.")
+@click.option(
+    "--counter", type=int, default=0, show_default=True, help="Session number for the day."
+)
 @click.pass_context
 def run(
     ctx: click.Context,

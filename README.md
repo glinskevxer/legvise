@@ -194,6 +194,7 @@ Beyond lint, types and tests, the repository checks itself:
 | `check_wiring` | a module the command tree cannot reach |
 | `check_tests` | a module with no test module, or the reverse |
 | `check_cli` | a group that is not registered, or a command with no help |
+| `check_help` | help that exists and says nothing |
 | `check_sql` | `SELECT *`, an interpolated value, or SQL outside the store |
 | `check_indexes` | a foreign key with no index on the child side |
 | `check_migrations` | a migration edited after it shipped |

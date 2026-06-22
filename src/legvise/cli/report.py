@@ -100,7 +100,7 @@ def edge(ctx: click.Context, session_ref: str | None) -> None:
 )
 @click.pass_context
 def export(ctx: click.Context, session: str, shape: str, target: Path | None) -> None:
-    """Export one session's plans."""
+    """Write one session's plans out for the risk spreadsheet."""
     context = app(ctx)
     store = PlanStore(context.db)
     handle = sys.stdout if target is None else target.open("w", encoding="utf-8", newline="")

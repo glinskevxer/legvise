@@ -41,6 +41,7 @@ jobs:
       - run: python -m legvise.tools.check_wiring
       - run: python -m legvise.tools.check_tests
       - run: python -m legvise.tools.check_cli
+      - run: python -m legvise.tools.check_help
       - run: python -m legvise.tools.check_sql
       - run: python -m legvise.tools.check_indexes
       - run: python -m legvise.tools.check_migrations

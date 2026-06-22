@@ -33,7 +33,7 @@ def add(
     cap: str,
     maker_rebate: bool,
 ) -> None:
-    """Add a venue."""
+    """Put a new venue on file with its budgets and its cap."""
     context = app(ctx)
     venue = Venue.build(
         code,

@@ -95,7 +95,9 @@ def list_instruments(
 
 
 @group.command("shared")
-@click.option("--min-venues", type=int, default=2, show_default=True, help="Venues required.")
+@click.option(
+    "--min-venues", type=int, default=2, show_default=True, help="How many venues have to list it."
+)
 @click.pass_context
 def shared(ctx: click.Context, min_venues: int) -> None:
     """List the markets that are live on enough venues to be worth scanning."""
