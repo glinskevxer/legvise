@@ -206,6 +206,8 @@ Beyond lint, types and tests, the repository checks itself:
 | `check_changelog` | a changelog that lags the version the code reports |
 | `check_readme` | this file describing a command that does not exist |
 
+`docs/commands.md` is the whole tree on one page, generated the same way.
+
 Run everything the way CI does:
 
 ```

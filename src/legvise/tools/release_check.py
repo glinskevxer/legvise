@@ -18,6 +18,7 @@ from typing import Final
 
 from legvise.tools import (
     build_architecture,
+    build_commands,
     build_glossary,
     build_rules,
     check_changelog,
@@ -68,6 +69,7 @@ GENERATED: Final[tuple[tuple[str, Callable[[], bool]], ...]] = (
     ("build_rules", build_rules.is_current),
     ("build_glossary", build_glossary.is_current),
     ("build_architecture", build_architecture.is_current),
+    ("build_commands", build_commands.is_current),
 )
 
 

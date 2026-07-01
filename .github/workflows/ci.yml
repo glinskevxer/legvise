@@ -68,12 +68,14 @@ jobs:
       - run: python -m legvise.tools.build_rules --check
       - run: python -m legvise.tools.build_glossary --check
       - run: python -m legvise.tools.build_architecture --check
+      - run: python -m legvise.tools.build_commands --check
       - name: fail if regenerating changes anything
         run: |
           python -m legvise.tools.schema_dump
           python -m legvise.tools.build_rules
           python -m legvise.tools.build_glossary
           python -m legvise.tools.build_architecture
+          python -m legvise.tools.build_commands
           git diff --exit-code docs/
 
   tests:
