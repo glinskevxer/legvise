@@ -57,3 +57,29 @@ def test_the_run_gives_the_same_answer_twice() -> None:
 def test_the_command_reports_clean_on_success(capsys: pytest.CaptureFixture[str]) -> None:
     main(("--quiet",))
     assert "smoke: clean" in capsys.readouterr().out
+
+
+def test_the_triangular_pass_searches_the_one_venue_that_closes_a_loop() -> None:
+    outcome = run(quiet=True)
+    assert outcome["loops_written"] == 1
+
+
+def test_the_two_passes_get_different_sessions() -> None:
+    outcome = run(quiet=True)
+    assert outcome["session"] != outcome["loop_session"]
+
+
+def test_both_venues_come_out_ready_to_scan() -> None:
+    assert run(quiet=True)["venues_ready"] == 2
+
+
+def test_the_loop_session_reference_carries_the_same_day() -> None:
+    outcome = run(quiet=True)
+    assert str(outcome["loop_session"])[:9] == str(outcome["session"])[:9]
+
+
+def test_the_run_prints_the_loop_numbers_too(capsys: pytest.CaptureFixture[str]) -> None:
+    run()
+    printed = capsys.readouterr().out
+    assert "smoke: loops_written" in printed
+    assert "smoke: venues_ready" in printed

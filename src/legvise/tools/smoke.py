@@ -9,6 +9,10 @@ can read back.
 It builds its own database in memory and asserts on the result, so it can run
 anywhere and leaves nothing behind. CI runs it after the suite; a developer runs
 it when something feels wrong and the tests all pass.
+
+Both passes run. The triangular one shares the same venue and the same reference
+data as the cross venue one, which is the arrangement most likely to expose a
+scanner that has grown an assumption about being the only thing writing.
 """
 
 from __future__ import annotations
@@ -28,12 +32,14 @@ from legvise.model.inventory import Band, Position
 from legvise.model.network import TransferNetwork, VenueNetwork
 from legvise.model.venue import Venue
 from legvise.money import dec
+from legvise.report.desk_report import build_desk_status
 from legvise.report.edge_report import build_edge_report
 from legvise.report.session_report import summarise
 from legvise.risk.caps import CapSet
 from legvise.routing.pricer import StoreRebalancePricer
 from legvise.routing.rebalance import CarryTerms
 from legvise.scan.direct import ScanTerms
+from legvise.scan.loop_session import LoopScanner
 from legvise.scan.session import Scanner
 from legvise.store.books import BookStore
 from legvise.store.db import Database
@@ -51,6 +57,26 @@ __all__ = ["main", "run"]
 AT = dt.datetime(2026, 2, 3, 9, 0, tzinfo=dt.UTC)
 AS_OF = AT.isoformat()
 VENUES = ("kraken", "okx")
+
+#: Two markets that close a USD, BTC, ETH triangle against the BTC-USD book the
+#: cross venue pass already loads. Wide enough to survive three taker fees, which
+#: a four basis point loop is not.
+TRIANGLE = (
+    ("ETH-BTC", "0.05", "0.0501"),
+    ("ETH-USD", "5.04", "5.05"),
+)
+
+
+def _market(venue: str, symbol: str) -> Instrument:
+    """One market with filters loose enough for every leg the smoke run sends."""
+    return Instrument.build(
+        venue,
+        symbol,
+        tick_size="0.0001",
+        lot_step="0.00001",
+        min_notional="1",
+        max_notional="10000000",
+    )
 
 
 def _seed(db: Database) -> None:
@@ -79,26 +105,32 @@ def _seed(db: Database) -> None:
                 notional_cap="10000000",
             )
         )
-        instruments.add(
-            Instrument.build(
-                code,
-                "BTC-USD",
-                tick_size="0.01",
-                lot_step="0.0001",
-                min_notional="10",
-                max_notional="10000000",
-            )
-        )
+        for symbol, _, _ in (("BTC-USD", "", ""),) + TRIANGLE:
+            instruments.add(_market(code, symbol))
         fees.put_ladder(FeeLadder.build(code, (("0", "0", "5"),)))
         fees.record_volume(code, dec("0"), as_of=AS_OF)
         networks.put_support(VenueNetwork.build(code, "BTC", "BTC-MAIN"))
-        for asset, free, ceiling in (("BTC", "50", "1000"), ("USD", "5000000", "50000000")):
+        for asset, free, ceiling in (
+            ("BTC", "50", "1000"),
+            ("ETH", "5000", "100000"),
+            ("USD", "5000000", "50000000"),
+        ):
             inventory.put_position(Position.build(code, asset, free=free, as_of=AS_OF))
             inventory.put_band(Band.build(code, asset, floor="0", target="25", ceiling=ceiling))
 
 
 def _load_books(db: Database) -> None:
     books = BookStore(db)
+    for symbol, bid, ask in TRIANGLE:
+        books.add(
+            Book.build(
+                "kraken",
+                symbol,
+                observed_at=AT,
+                bids=((bid, "10000"),),
+                asks=((ask, "10000"),),
+            )
+        )
     books.add(
         Book.build(
             "kraken",
@@ -180,6 +212,18 @@ def run(*, quiet: bool = False) -> dict[str, Decimal | int | str]:
         if found.gap_bps != Decimal(0):
             raise AssertionError(f"{plan.ref} drifted by {found.gap_bps} against a clean fill")
 
+        loops = LoopScanner(
+            db=db,
+            clock=FixedClock(AT),
+            start_asset="USD",
+            start_amount=dec("1000"),
+            min_edge_bps=dec("1"),
+        ).run(counter=1)
+        if loops.venues_searched != 1:
+            raise AssertionError(f"expected one venue searched, got {loops.venues_searched}")
+        if loops.plans_written != 1:
+            raise AssertionError(f"expected one loop written, got {loops.plans_written}")
+
         summary = summarise(plans, report.session)
         edge = build_edge_report(plans, fills, session_ref=report.session)
         outcome: dict[str, Decimal | int | str] = {
@@ -189,6 +233,9 @@ def run(*, quiet: bool = False) -> dict[str, Decimal | int | str]:
             "net_bps": plan.net_bps,
             "realised_bps": edge.realised_bps,
             "notional": plan.notional,
+            "loop_session": loops.session,
+            "loops_written": loops.plans_written,
+            "venues_ready": len(build_desk_status(db).ready_venues),
         }
         if not quiet:
             for key, value in outcome.items():
