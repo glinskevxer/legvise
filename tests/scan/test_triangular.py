@@ -141,3 +141,94 @@ def test_starting_somewhere_else_finds_the_same_loop_rotated() -> None:
     from_btc = find_cycles(build_graph(a_venue()), "kraken", start="BTC")
     assert all(c.start == "BTC" for c in from_btc)
     assert len(from_btc) == 2
+
+
+# Longer loops, and the properties a search over them has to keep.
+
+SQUARE = (
+    book("BTC-USD", "99.9", "100"),
+    book("ETH-BTC", "0.05", "0.0501"),
+    book("SOL-ETH", "0.02", "0.0201"),
+    book("SOL-USD", "0.1", "0.102"),
+)
+
+STARTS = ("USD", "BTC", "ETH", "SOL")
+
+
+@pytest.mark.parametrize("start", STARTS)
+def test_every_loop_starts_and_ends_where_it_was_asked_to(start: str) -> None:
+    for cycle in find_cycles(build_graph(SQUARE), "kraken", start=start, max_length=4):
+        assert cycle.start == start
+        assert cycle.hops[-1].to_asset == start
+
+
+@pytest.mark.parametrize("start", STARTS)
+def test_every_loop_visits_each_asset_once(start: str) -> None:
+    for cycle in find_cycles(build_graph(SQUARE), "kraken", start=start, max_length=4):
+        assert len(set(cycle.assets)) == cycle.length
+
+
+@pytest.mark.parametrize("start", STARTS)
+def test_every_hop_joins_the_one_before_it(start: str) -> None:
+    for cycle in find_cycles(build_graph(SQUARE), "kraken", start=start, max_length=4):
+        for earlier, later in zip(cycle.hops, cycle.hops[1:], strict=False):
+            assert earlier.to_asset == later.from_asset
+
+
+@pytest.mark.parametrize("start", STARTS)
+def test_a_longer_search_never_finds_fewer_loops(start: str) -> None:
+    graph = build_graph(SQUARE)
+    three = find_cycles(graph, "kraken", start=start, max_length=3)
+    four = find_cycles(graph, "kraken", start=start, max_length=4)
+    assert len(four) >= len(three)
+
+
+@pytest.mark.parametrize("start", STARTS)
+def test_the_loops_from_one_asset_come_in_pairs(start: str) -> None:
+    found = find_cycles(build_graph(SQUARE), "kraken", start=start, max_length=4)
+    assert len(found) % 2 == 0
+
+
+@pytest.mark.parametrize("start", STARTS)
+def test_reversing_every_loop_flips_the_sign_of_its_edge(start: str) -> None:
+    for cycle in find_cycles(build_graph(SQUARE), "kraken", start=start, max_length=4):
+        if cycle.gross_bps == dec("0"):
+            continue
+        assert (cycle.gross_bps > 0) != (cycle.reversed().gross_bps > 0)
+
+
+@pytest.mark.parametrize("floor", ["0", "1", "10", "100", "10000"])
+def test_a_higher_screen_never_keeps_more(floor: str) -> None:
+    loose = profitable_cycles("kraken", SQUARE, start="USD", min_bps=dec("0"), max_length=4)
+    tight = profitable_cycles("kraken", SQUARE, start="USD", min_bps=dec(floor), max_length=4)
+    assert len(tight) <= len(loose)
+
+
+@pytest.mark.parametrize("floor", ["0", "1", "10"])
+def test_everything_kept_clears_the_floor(floor: str) -> None:
+    for cycle in profitable_cycles("kraken", SQUARE, start="USD", min_bps=dec(floor), max_length=4):
+        assert cycle.gross_bps >= dec(floor)
+
+
+def test_the_kept_loops_come_back_best_first() -> None:
+    found = profitable_cycles("kraken", SQUARE, start="USD", max_length=4)
+    edges = [cycle.gross_bps for cycle in found]
+    assert edges == sorted(edges, reverse=True)
+
+
+def test_a_graph_missing_one_market_closes_no_square() -> None:
+    broken = tuple(b for b in SQUARE if str(b.symbol) != "SOL-USD")
+    assert find_cycles(build_graph(broken), "kraken", start="USD", max_length=4) == ()
+
+
+def test_a_square_offers_nothing_at_three_hops_from_any_start() -> None:
+    graph = build_graph(SQUARE)
+    for start in STARTS:
+        assert find_cycles(graph, "kraken", start=start, max_length=3) == ()
+
+
+def test_the_search_is_the_same_twice() -> None:
+    graph = build_graph(SQUARE)
+    first = find_cycles(graph, "kraken", start="USD", max_length=4)
+    second = find_cycles(graph, "kraken", start="USD", max_length=4)
+    assert [c.assets for c in first] == [c.assets for c in second]
