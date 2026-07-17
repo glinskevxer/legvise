@@ -226,3 +226,41 @@ def test_the_venue_report_counts_the_sendable_plans(planned: tuple[Run, str, str
 def test_a_desk_with_no_plans_lists_no_venues(desk: Run) -> None:
     lines = desk("report", "venues").output.strip().splitlines()
     assert len(lines) == 2
+
+
+def test_the_session_report_can_come_back_as_json(planned: tuple[Run, str, str]) -> None:
+    desk, session, _ = planned
+    payload = json.loads(desk("report", "session", session, "--json").output)
+    assert payload["session"] == session
+    assert payload["actionable"] == 1
+
+
+def test_a_json_session_report_writes_decimals_as_text(planned: tuple[Run, str, str]) -> None:
+    desk, session, _ = planned
+    payload = json.loads(desk("report", "session", session, "--json").output)
+    assert isinstance(payload["total_notional"], str)
+
+
+def test_the_edge_report_can_come_back_as_json(planned: tuple[Run, str, str]) -> None:
+    desk, session, ref = planned
+    desk("fill", "record", ref, "0", "t1", "--price", "100", "--size", "2")
+    desk("fill", "record", ref, "1", "t2", "--price", "101", "--size", "2")
+    payload = json.loads(desk("report", "edge", "--session", session, "--json").output)
+    assert payload["plans"] == 1
+    assert payload["leg_risk_plans"] == []
+
+
+def test_the_desk_report_can_come_back_as_json(desk: Run) -> None:
+    payload = json.loads(desk("report", "desk", "--json").output)
+    assert payload["can_scan"] is True
+    assert len(payload["venues"]) == 2
+
+
+def test_a_json_desk_report_lists_the_gaps(desk: Run) -> None:
+    # The runner mixes stderr in, and the failure line lands after the object,
+    # so the payload is everything up to the closing brace.
+    desk("fee", "clear-volume", "okx")
+    result = desk("report", "desk", "--json", expect=1)
+    payload = json.loads(result.output[: result.output.rindex("}") + 1])
+    assert payload["can_scan"] is False
+    assert any("no trailing volume" in gap for gap in payload["gaps"])

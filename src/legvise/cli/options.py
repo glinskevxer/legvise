@@ -8,7 +8,8 @@ place instead of in every command.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+import json
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import ROUND_HALF_EVEN, Decimal
 from pathlib import Path
@@ -23,6 +24,7 @@ from legvise.store.schema import install
 
 __all__ = [
     "Context",
+    "echo_json",
     "DeskGroup",
     "app",
     "bps_text",
@@ -130,3 +132,29 @@ def echo_rows(rows: Sequence[Sequence[str]], headers: Sequence[str]) -> None:
     click.echo("  ".join("-" * widths[i] for i in range(len(headers))))
     for row in rows:
         click.echo("  ".join(cell.ljust(widths[i]) for i, cell in enumerate(row)).rstrip())
+
+
+def echo_json(payload: Mapping[str, object]) -> None:
+    """Print one object as JSON, decimals and all.
+
+    Every value goes out as text rather than as a JSON number. A size with eight
+    decimal places read back through a JSON parser's float is not the size that
+    was written, and the desk reconciles these against a venue.
+    """
+    click.echo(json.dumps({key: _jsonable(value) for key, value in payload.items()}, indent=2))
+
+
+def _jsonable(value: object) -> object:
+    if isinstance(value, Decimal):
+        return format(value, "f")
+    if isinstance(value, bool | int | str) or value is None:
+        return value
+    if isinstance(value, Mapping):
+        return {str(key): _jsonable(item) for key, item in value.items()}
+    if isinstance(value, tuple) and hasattr(value, "_fields"):
+        # A named tuple is a record with a spelling of its own -- `Symbol` is
+        # `BTC-USD`, not `["BTC", "USD"]` -- so it goes out as its text.
+        return str(value)
+    if isinstance(value, list | tuple):
+        return [_jsonable(item) for item in value]
+    return str(value)

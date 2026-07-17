@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from decimal import Decimal
 from pathlib import Path
 
@@ -9,9 +10,10 @@ import click
 import pytest
 from click.testing import CliRunner
 
-from legvise.cli.options import DeskGroup, bps_text, echo_rows, open_context
+from legvise.cli.options import DeskGroup, bps_text, echo_json, echo_rows, open_context
 from legvise.clock import FixedClock
 from legvise.errors import BadArgument, NotFound
+from legvise.ids import parse_symbol
 from tests.conftest import SESSION_START
 
 
@@ -117,3 +119,45 @@ def test_a_read_only_context_refuses_a_write(tmp_path: Path) -> None:
 def test_a_read_only_context_on_a_missing_book_is_a_not_found(tmp_path: Path) -> None:
     with pytest.raises(NotFound):
         open_context(tmp_path / "nowhere.sqlite3", read_only=True)
+
+
+def test_a_decimal_goes_out_as_text(capsys: pytest.CaptureFixture[str]) -> None:
+    echo_json({"size": Decimal("0.00000001")})
+    assert json.loads(capsys.readouterr().out)["size"] == "0.00000001"
+
+
+def test_an_integer_stays_an_integer(capsys: pytest.CaptureFixture[str]) -> None:
+    echo_json({"plans": 3})
+    assert json.loads(capsys.readouterr().out)["plans"] == 3
+
+
+def test_a_boolean_stays_a_boolean(capsys: pytest.CaptureFixture[str]) -> None:
+    echo_json({"ready": True})
+    assert json.loads(capsys.readouterr().out)["ready"] is True
+
+
+def test_nothing_goes_out_as_null(capsys: pytest.CaptureFixture[str]) -> None:
+    echo_json({"last": None})
+    assert json.loads(capsys.readouterr().out)["last"] is None
+
+
+def test_a_nested_mapping_is_converted_too(capsys: pytest.CaptureFixture[str]) -> None:
+    echo_json({"clauses": {"EDGE.01": 2}})
+    assert json.loads(capsys.readouterr().out)["clauses"] == {"EDGE.01": 2}
+
+
+def test_a_list_of_decimals_is_converted_element_by_element(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    echo_json({"sizes": [Decimal("1.5"), Decimal("2")]})
+    assert json.loads(capsys.readouterr().out)["sizes"] == ["1.5", "2"]
+
+
+def test_anything_else_goes_out_as_its_text(capsys: pytest.CaptureFixture[str]) -> None:
+    echo_json({"symbol": parse_symbol("BTC-USD")})
+    assert json.loads(capsys.readouterr().out)["symbol"] == "BTC-USD"
+
+
+def test_the_output_reads_back_as_json(capsys: pytest.CaptureFixture[str]) -> None:
+    echo_json({"a": 1, "b": "two"})
+    assert json.loads(capsys.readouterr().out) == {"a": 1, "b": "two"}

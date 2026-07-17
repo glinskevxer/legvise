@@ -7,7 +7,7 @@ from pathlib import Path
 
 import click
 
-from legvise.cli.options import app, bps_text, echo_rows
+from legvise.cli.options import app, bps_text, echo_json, echo_rows
 from legvise.ids import asset_code
 from legvise.report.desk_report import build_desk_status
 from legvise.report.edge_report import build_edge_report
@@ -37,11 +37,29 @@ def group() -> None:
 
 @group.command("session")
 @click.argument("session")
+@click.option("--json", "as_json", is_flag=True, help="Print one object instead of a table.")
 @click.pass_context
-def session(ctx: click.Context, session: str) -> None:
+def session(ctx: click.Context, session: str, as_json: bool) -> None:
     """Print one session's summary."""
     context = app(ctx)
     found = summarise(PlanStore(context.db), session)
+    if as_json:
+        echo_json(
+            {
+                "session": found.session,
+                "started_at": found.started_at,
+                "min_edge_bps": found.min_edge_bps,
+                "plans": found.plans,
+                "actionable": found.actionable,
+                "trimmed": found.trimmed,
+                "refused": found.refused,
+                "hit_rate": found.hit_rate,
+                "total_notional": found.total_notional,
+                "best_net_bps": found.best_net_bps,
+                "clauses": {line.code: line.hits for line in found.clauses},
+            }
+        )
+        return
     click.echo(f"session     {found.session}")
     click.echo(f"started     {found.started_at}")
     click.echo(f"min edge    {bps_text(found.min_edge_bps)} bps")
@@ -62,13 +80,29 @@ def session(ctx: click.Context, session: str) -> None:
 
 @group.command("edge")
 @click.option("--session", "session_ref", default=None, help="One session, or every plan.")
+@click.option("--json", "as_json", is_flag=True, help="Print one object instead of a table.")
 @click.pass_context
-def edge(ctx: click.Context, session_ref: str | None) -> None:
+def edge(ctx: click.Context, session_ref: str | None, as_json: bool) -> None:
     """Print expected against realised, weighted by notional."""
     context = app(ctx)
     report = build_edge_report(
         PlanStore(context.db), FillStore(context.db), session_ref=session_ref
     )
+    if as_json:
+        echo_json(
+            {
+                "plans": report.plans,
+                "total_notional": report.total_notional,
+                "expected_bps": report.expected_bps,
+                "realised_bps": report.realised_bps,
+                "gap_bps": report.gap_bps,
+                "price_drift_bps": report.price_drift_bps,
+                "fee_drift_bps": report.fee_drift_bps,
+                "realised_amount": report.realised_amount,
+                "leg_risk_plans": list(report.leg_risk_plans),
+            }
+        )
+        return
     click.echo(f"plans        {report.plans}")
     click.echo(f"notional     {report.total_notional}")
     click.echo(f"expected     {bps_text(report.expected_bps)} bps")
@@ -185,8 +219,9 @@ def inventory(ctx: click.Context, asset: str | None) -> None:
 
 
 @group.command("desk")
+@click.option("--json", "as_json", is_flag=True, help="Print one object instead of a table.")
 @click.pass_context
-def desk(ctx: click.Context) -> None:
+def desk(ctx: click.Context, as_json: bool) -> None:
     """Say whether the desk is set up well enough to scan, and what is missing.
 
     The gaps are the point. A scan that silently uses four of five venues looks
@@ -195,6 +230,29 @@ def desk(ctx: click.Context) -> None:
     """
     context = app(ctx)
     status = build_desk_status(context.db)
+    if as_json:
+        echo_json(
+            {
+                "can_scan": status.can_scan,
+                "venues": [
+                    {
+                        "venue": venue.code,
+                        "active": venue.active,
+                        "markets": venue.markets,
+                        "books": venue.books,
+                        "ready": venue.is_ready,
+                    }
+                    for venue in status.venues
+                ],
+                "shared_markets": [str(symbol) for symbol in status.shared_symbols],
+                "sessions": status.sessions,
+                "last_session": status.last_session,
+                "gaps": list(status.gaps),
+            }
+        )
+        if not status.can_scan:
+            raise click.ClickException("the desk is not ready to scan")
+        return
     rows = [
         (
             venue.code,

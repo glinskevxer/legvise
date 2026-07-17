@@ -394,6 +394,10 @@ Print and export what the scanner and the fills came to.
 
 Say whether the desk is set up well enough to scan, and what is missing.
 
+| option | default | what it does |
+| --- | --- | --- |
+| `--json` |  | Print one object instead of a table. |
+
 ### `legvise report edge`
 
 Print expected against realised, weighted by notional.
@@ -401,6 +405,7 @@ Print expected against realised, weighted by notional.
 | option | default | what it does |
 | --- | --- | --- |
 | `--session` |  | One session, or every plan. |
+| `--json` |  | Print one object instead of a table. |
 
 ### `legvise report export SESSION`
 
@@ -440,6 +445,10 @@ Print how far each holding is from its target, and what would square it.
 ### `legvise report session SESSION`
 
 Print one session's summary.
+
+| option | default | what it does |
+| --- | --- | --- |
+| `--json` |  | Print one object instead of a table. |
 
 ### `legvise report venues`
 
