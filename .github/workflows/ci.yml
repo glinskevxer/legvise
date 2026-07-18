@@ -49,6 +49,7 @@ jobs:
       - run: python -m legvise.tools.check_naming
       - run: python -m legvise.tools.check_rules
       - run: python -m legvise.tools.check_errors
+      - run: python -m legvise.tools.check_gate
       - run: python -m legvise.tools.check_package
       - run: python -m legvise.tools.check_readme
       - run: python -m legvise.tools.check_changelog

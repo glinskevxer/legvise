@@ -14,7 +14,7 @@ or any lower one, and `check_layers` refuses anything else.
 | `scan` | 9 | 9 | `base`, `domain`, `model`, `store` | the cross venue and triangular passes, and attribution |
 | `report` | 6 | 6 | `base`, `domain`, `model`, `scan`, `store` | session, edge, inventory and desk reports |
 | `cli` | 16 | 16 | `base`, `domain`, `model`, `report`, `scan`, `store` | the command tree |
-| `tools` | 24 | 0 | `base`, `cli`, `domain`, `model`, `report`, `scan`, `store` | the checks, and the documents they generate |
+| `tools` | 25 | 0 | `base`, `cli`, `domain`, `model`, `report`, `scan`, `store` | the checks, and the documents they generate |
 
 ## `base`
 
@@ -123,6 +123,7 @@ or any lower one, and `check_layers` refuses anything else.
 - `legvise.tools.check_cli`
 - `legvise.tools.check_docstrings`
 - `legvise.tools.check_errors`
+- `legvise.tools.check_gate`
 - `legvise.tools.check_help`
 - `legvise.tools.check_indexes`
 - `legvise.tools.check_layers`
@@ -140,4 +141,4 @@ or any lower one, and `check_layers` refuses anything else.
 - `legvise.tools.smoke`
 - `legvise.tools.walk`
 
-100 modules across 8 layers.
+101 modules across 8 layers.

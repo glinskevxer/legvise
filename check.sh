@@ -27,7 +27,7 @@ run mypy "$PY" -m mypy
 for name in $(ls src/legvise/tools/check_*.py | xargs -n1 basename | sed "s/\.py$//"); do
   run "$name" "$PY" -m "legvise.tools.$name"
 done
-for name in schema_dump build_rules build_glossary; do
+for name in schema_dump build_rules build_glossary build_architecture build_commands; do
   run "$name" "$PY" -m "legvise.tools.$name" --check
 done
 run pytest "$PY" -m pytest -q
