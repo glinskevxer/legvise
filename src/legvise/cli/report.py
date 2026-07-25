@@ -2,20 +2,22 @@
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import click
 
-from legvise.cli.options import app, bps_text, echo_json, echo_rows
+from legvise.cli.options import app, bps_text, echo_json, echo_rows, out_option, writing_to
 from legvise.ids import asset_code
 from legvise.report.desk_report import build_desk_status
 from legvise.report.edge_report import build_edge_report
 from legvise.report.export import (
     LEG_FIELDS,
     PLAN_FIELDS,
+    desk_payload,
+    edge_payload,
     leg_rows,
     plan_rows,
+    session_payload,
     write_csv,
     write_edge_json,
     write_session_json,
@@ -44,21 +46,7 @@ def session(ctx: click.Context, session: str, as_json: bool) -> None:
     context = app(ctx)
     found = summarise(PlanStore(context.db), session)
     if as_json:
-        echo_json(
-            {
-                "session": found.session,
-                "started_at": found.started_at,
-                "min_edge_bps": found.min_edge_bps,
-                "plans": found.plans,
-                "actionable": found.actionable,
-                "trimmed": found.trimmed,
-                "refused": found.refused,
-                "hit_rate": found.hit_rate,
-                "total_notional": found.total_notional,
-                "best_net_bps": found.best_net_bps,
-                "clauses": {line.code: line.hits for line in found.clauses},
-            }
-        )
+        echo_json(session_payload(found))
         return
     click.echo(f"session     {found.session}")
     click.echo(f"started     {found.started_at}")
@@ -89,19 +77,7 @@ def edge(ctx: click.Context, session_ref: str | None, as_json: bool) -> None:
         PlanStore(context.db), FillStore(context.db), session_ref=session_ref
     )
     if as_json:
-        echo_json(
-            {
-                "plans": report.plans,
-                "total_notional": report.total_notional,
-                "expected_bps": report.expected_bps,
-                "realised_bps": report.realised_bps,
-                "gap_bps": report.gap_bps,
-                "price_drift_bps": report.price_drift_bps,
-                "fee_drift_bps": report.fee_drift_bps,
-                "realised_amount": report.realised_amount,
-                "leg_risk_plans": list(report.leg_risk_plans),
-            }
-        )
+        echo_json(edge_payload(report))
         return
     click.echo(f"plans        {report.plans}")
     click.echo(f"notional     {report.total_notional}")
@@ -125,41 +101,24 @@ def edge(ctx: click.Context, session_ref: str | None, as_json: bool) -> None:
     show_default=True,
     help="CSV for the spreadsheet, JSON for the dashboard.",
 )
-@click.option(
-    "--out",
-    "target",
-    type=click.Path(dir_okay=False, path_type=Path),
-    default=None,
-    help="Where to write it. Standard output if not given.",
-)
+@out_option
 @click.pass_context
 def export(ctx: click.Context, session: str, shape: str, target: Path | None) -> None:
     """Write one session's plans out for the risk spreadsheet."""
     context = app(ctx)
     store = PlanStore(context.db)
-    handle = sys.stdout if target is None else target.open("w", encoding="utf-8", newline="")
-    try:
+    with writing_to(target) as handle:
         if shape == "csv":
             count = write_csv(handle, plan_rows(store.for_session(session)), PLAN_FIELDS)
         else:
-            write_session_json(handle, summarise(store, session))
-            count = summarise(store, session).plans
-    finally:
-        if target is not None:
-            handle.close()
+            count = write_session_json(handle, summarise(store, session))["plans"]
     if target is not None and not context.quiet:
         click.echo(f"wrote {count} plans to {target}")
 
 
 @group.command("export-edge")
 @click.option("--session", "session_ref", default=None, help="One session, or every plan.")
-@click.option(
-    "--out",
-    "target",
-    type=click.Path(dir_okay=False, path_type=Path),
-    default=None,
-    help="Where to write it. Standard output if not given.",
-)
+@out_option
 @click.pass_context
 def export_edge(ctx: click.Context, session_ref: str | None, target: Path | None) -> None:
     """Export the edge report as JSON."""
@@ -167,12 +126,8 @@ def export_edge(ctx: click.Context, session_ref: str | None, target: Path | None
     report = build_edge_report(
         PlanStore(context.db), FillStore(context.db), session_ref=session_ref
     )
-    handle = sys.stdout if target is None else target.open("w", encoding="utf-8", newline="")
-    try:
+    with writing_to(target) as handle:
         write_edge_json(handle, report)
-    finally:
-        if target is not None:
-            handle.close()
     if target is not None and not context.quiet:
         click.echo(f"wrote {report.plans} plans to {target}")
 
@@ -231,25 +186,7 @@ def desk(ctx: click.Context, as_json: bool) -> None:
     context = app(ctx)
     status = build_desk_status(context.db)
     if as_json:
-        echo_json(
-            {
-                "can_scan": status.can_scan,
-                "venues": [
-                    {
-                        "venue": venue.code,
-                        "active": venue.active,
-                        "markets": venue.markets,
-                        "books": venue.books,
-                        "ready": venue.is_ready,
-                    }
-                    for venue in status.venues
-                ],
-                "shared_markets": [str(symbol) for symbol in status.shared_symbols],
-                "sessions": status.sessions,
-                "last_session": status.last_session,
-                "gaps": list(status.gaps),
-            }
-        )
+        echo_json(desk_payload(status))
         if not status.can_scan:
             raise click.ClickException("the desk is not ready to scan")
         return
@@ -295,12 +232,8 @@ def export_legs(ctx: click.Context, session: str, target: Path | None, actionabl
     context = app(ctx)
     store = PlanStore(context.db)
     plans = store.actionable(session) if actionable else store.for_session(session)
-    handle = sys.stdout if target is None else target.open("w", encoding="utf-8", newline="")
-    try:
+    with writing_to(target) as handle:
         count = write_csv(handle, leg_rows(plans), LEG_FIELDS)
-    finally:
-        if target is not None:
-            handle.close()
     if target is not None and not context.quiet:
         click.echo(f"wrote {count} legs to {target}")
 

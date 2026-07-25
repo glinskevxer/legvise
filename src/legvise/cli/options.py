@@ -9,11 +9,13 @@ place instead of in every command.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping, Sequence
+import sys
+from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from decimal import ROUND_HALF_EVEN, Decimal
 from pathlib import Path
-from typing import Any
+from typing import IO, Any
 
 import click
 
@@ -31,6 +33,8 @@ __all__ = [
     "db_option",
     "echo_rows",
     "open_context",
+    "out_option",
+    "writing_to",
 ]
 
 DEFAULT_DB = "legvise.sqlite3"
@@ -88,6 +92,39 @@ def db_option(fn: click.decorators.FC) -> click.decorators.FC:
         type=click.Path(dir_okay=False, path_type=Path),
         help="Path to the book of record.",
     )(fn)
+
+
+def out_option(fn: click.decorators.FC) -> click.decorators.FC:
+    """The `--out` option, spelled once."""
+    return click.option(
+        "--out",
+        "target",
+        type=click.Path(dir_okay=False, path_type=Path),
+        default=None,
+        help="Where to write it. Standard output if not given.",
+    )(fn)
+
+
+@contextmanager
+def writing_to(target: Path | None) -> Iterator[IO[str]]:
+    """Yield somewhere to write, which is standard output when no path is given.
+
+    Standard output is deliberately not closed on the way out. Every export
+    command used to open and close its own handle, and closing `sys.stdout` in
+    a `finally` is the kind of thing that works until two commands run in one
+    process, which is exactly what the test runner does.
+
+    Newline translation is off, because the CSV writer picks its own line
+    ending and a file that goes out with both would not load.
+    """
+    if target is None:
+        yield sys.stdout
+        return
+    handle = target.open("w", encoding="utf-8", newline="")
+    try:
+        yield handle
+    finally:
+        handle.close()
 
 
 class DeskGroup(click.Group):

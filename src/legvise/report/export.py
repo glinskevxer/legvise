@@ -23,14 +23,18 @@ from typing import IO, Any
 
 from legvise.errors import BadArgument
 from legvise.model.plan import Plan
+from legvise.report.desk_report import DeskStatus
 from legvise.report.edge_report import EdgeReport
 from legvise.report.session_report import SessionSummary
 
 __all__ = [
     "LEG_FIELDS",
     "PLAN_FIELDS",
+    "desk_payload",
+    "edge_payload",
     "leg_rows",
     "plan_rows",
+    "session_payload",
     "write_csv",
     "write_edge_json",
     "write_session_json",
@@ -136,7 +140,16 @@ def write_csv(handle: IO[str], rows: list[dict[str, str]], fields: tuple[str, ..
     return len(rows)
 
 
-def _session_payload(summary: SessionSummary) -> dict[str, Any]:
+def session_payload(summary: SessionSummary) -> dict[str, Any]:
+    """One session summary as the shape every reader of it gets.
+
+    The terminal and the exported file are the same bytes. They were two
+    dictionaries once, written months apart, and they had already drifted: the
+    printed one dropped the symbols and the venues and spelled the clauses as
+    an object rather than a list. Anyone reconciling a dashboard against a
+    saved export would have found the two disagreeing about a session that had
+    not changed.
+    """
     return {
         "session": summary.session,
         "started_at": summary.started_at,
@@ -158,13 +171,14 @@ def _session_payload(summary: SessionSummary) -> dict[str, Any]:
 
 def write_session_json(handle: IO[str], summary: SessionSummary) -> Mapping[str, Any]:
     """Write one session summary as JSON and return what was written."""
-    payload = _session_payload(summary)
+    payload = session_payload(summary)
     json.dump(payload, handle, indent=2, sort_keys=False)
     handle.write("\n")
     return payload
 
 
-def _edge_payload(report: EdgeReport) -> dict[str, Any]:
+def edge_payload(report: EdgeReport) -> dict[str, Any]:
+    """One edge report as the shape every reader of it gets."""
     return {
         "plans": report.plans,
         "total_notional": _text(report.total_notional),
@@ -192,7 +206,35 @@ def _edge_payload(report: EdgeReport) -> dict[str, Any]:
 
 def write_edge_json(handle: IO[str], report: EdgeReport) -> Mapping[str, Any]:
     """Write an edge report as JSON and return what was written."""
-    payload = _edge_payload(report)
+    payload = edge_payload(report)
     json.dump(payload, handle, indent=2, sort_keys=False)
     handle.write("\n")
     return payload
+
+
+def desk_payload(status: DeskStatus) -> dict[str, Any]:
+    """The desk readiness page as an object.
+
+    `can_scan` is the field to branch on. The gaps say what is missing and the
+    venue rows say where, but a caller that reads the rows and works out the
+    verdict for itself will get a different answer from the one the tool acts
+    on, which is the whole reason the verdict is a field.
+    """
+    return {
+        "can_scan": status.can_scan,
+        "venues": [
+            {
+                "venue": venue.code,
+                "active": venue.active,
+                "markets": venue.markets,
+                "books": venue.books,
+                "ready": venue.is_ready,
+                "gaps": list(venue.gaps),
+            }
+            for venue in status.venues
+        ],
+        "shared_markets": [str(symbol) for symbol in status.shared_symbols],
+        "sessions": status.sessions,
+        "last_session": status.last_session,
+        "gaps": list(status.gaps),
+    }

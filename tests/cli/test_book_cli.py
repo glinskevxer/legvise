@@ -177,12 +177,27 @@ def test_the_confidence_command_reports_the_age_and_the_budget(seeded: Run) -> N
 
 
 def test_a_book_loaded_just_now_is_still_nearly_believed_in_full(seeded: Run) -> None:
-    # The load and the read are separate processes on a real clock, so a few
-    # milliseconds have passed. The state is decaying, barely.
-    seeded("book", "load", "kraken", "BTC-USD", "--bid", "99:1", "--ask", "100:1")
-    output = seeded("book", "confidence", "kraken", "BTC-USD").output
+    # The load and the read are two invocations on a real clock, so time passes
+    # between them. Against kraken's 750 ms budget that was 4% of the slope on
+    # an idle machine and 18% on a loaded one, which made this test a coin toss
+    # rather than a measurement. The venue it asks about has an hour instead,
+    # so the gap has to be minutes before the number moves.
+    seeded(
+        "venue",
+        "add",
+        "patient",
+        "Patient",
+        "--staleness-ms",
+        "3600000",
+        "--depth-bps",
+        "35",
+        "--cap",
+        "250000",
+    )
+    seeded("book", "load", "patient", "BTC-USD", "--bid", "99:1", "--ask", "100:1")
+    output = seeded("book", "confidence", "patient", "BTC-USD").output
     believe = next(row for row in output.splitlines() if row.startswith("believe"))
-    assert float(believe.split()[1]) > 0.9
+    assert float(believe.split()[1]) > 0.99
     assert "state    spent" not in output
 
 

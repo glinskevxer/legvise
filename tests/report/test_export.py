@@ -13,12 +13,16 @@ from legvise.model.book import Side
 from legvise.model.leg import Leg
 from legvise.model.plan import Plan, PlanKind, PlanStatus
 from legvise.money import dec
+from legvise.report.desk_report import DeskStatus, VenueStatus
 from legvise.report.edge_report import EdgeReport
 from legvise.report.export import (
     LEG_FIELDS,
     PLAN_FIELDS,
+    desk_payload,
+    edge_payload,
     leg_rows,
     plan_rows,
+    session_payload,
     write_csv,
     write_edge_json,
     write_session_json,
@@ -210,3 +214,90 @@ def test_the_leg_export_with_no_plans_still_writes_the_header() -> None:
     handle = io.StringIO()
     assert write_csv(handle, leg_rows([]), LEG_FIELDS) == 0
     assert handle.getvalue().strip() == ",".join(LEG_FIELDS)
+
+
+# The payload builders. Each one is the single shape its report goes out in,
+# whether it is printed, piped or written to a file.
+
+
+def test_a_session_payload_writes_every_decimal_as_text() -> None:
+    payload = session_payload(a_summary())
+    assert payload["min_edge_bps"] == "2"
+    assert payload["total_notional"] == "200"
+    assert payload["best_net_bps"] == "80"
+
+
+def test_a_session_payload_spells_its_symbols_out() -> None:
+    assert session_payload(a_summary())["symbols"] == ["BTC-USD"]
+
+
+def test_a_session_payload_lists_a_clause_as_an_object() -> None:
+    clauses = session_payload(a_summary())["clauses"]
+    assert clauses == [
+        {"code": "EDGE.01", "hits": 2, "text": "a plan has to clear the desk minimum edge"}
+    ]
+
+
+def test_a_session_payload_keeps_its_counts_as_numbers() -> None:
+    payload = session_payload(a_summary())
+    assert payload["plans"] == 3
+    assert payload["actionable"] == 1
+
+
+def test_a_session_payload_is_what_the_writer_writes() -> None:
+    handle = io.StringIO()
+    written = write_session_json(handle, a_summary())
+    assert written == session_payload(a_summary())
+    assert json.loads(handle.getvalue()) == written
+
+
+def test_an_edge_payload_is_what_the_writer_writes() -> None:
+    report = EdgeReport(lines=())
+    handle = io.StringIO()
+    assert write_edge_json(handle, report) == edge_payload(report)
+
+
+def test_an_empty_edge_payload_still_carries_every_key() -> None:
+    payload = edge_payload(EdgeReport(lines=()))
+    assert payload["plans"] == 0
+    assert payload["lines"] == []
+    assert payload["leg_risk_plans"] == []
+
+
+def test_a_desk_payload_carries_the_verdict_as_a_field() -> None:
+    status = DeskStatus(venues=(), shared_symbols=(), last_session=None, sessions=0)
+    payload = desk_payload(status)
+    assert payload["can_scan"] is False
+    assert payload["last_session"] is None
+
+
+def test_a_desk_payload_names_what_each_venue_is_missing() -> None:
+    venue = VenueStatus(code="kraken", active=True, markets=0, books=0, gaps=("no fee ladder",))
+    status = DeskStatus(venues=(venue,), shared_symbols=(), last_session=None, sessions=0)
+    payload = desk_payload(status)
+    assert payload["venues"] == [
+        {
+            "venue": "kraken",
+            "active": True,
+            "markets": 0,
+            "books": 0,
+            "ready": False,
+            "gaps": ["no fee ladder"],
+        }
+    ]
+    assert payload["gaps"] == ["kraken: no fee ladder"]
+
+
+def test_a_desk_payload_spells_the_shared_markets_out() -> None:
+    status = DeskStatus(venues=(), shared_symbols=(SYMBOL,), last_session="S1", sessions=2)
+    assert desk_payload(status)["shared_markets"] == ["BTC-USD"]
+
+
+def test_every_payload_survives_a_round_trip_through_json() -> None:
+    status = DeskStatus(venues=(), shared_symbols=(SYMBOL,), last_session=None, sessions=0)
+    for payload in (
+        session_payload(a_summary()),
+        edge_payload(EdgeReport(lines=())),
+        desk_payload(status),
+    ):
+        assert json.loads(json.dumps(payload)) == payload

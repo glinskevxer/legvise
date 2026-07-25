@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from decimal import Decimal
 from pathlib import Path
 
@@ -10,7 +11,15 @@ import click
 import pytest
 from click.testing import CliRunner
 
-from legvise.cli.options import DeskGroup, bps_text, echo_json, echo_rows, open_context
+from legvise.cli.options import (
+    DeskGroup,
+    bps_text,
+    echo_json,
+    echo_rows,
+    open_context,
+    out_option,
+    writing_to,
+)
 from legvise.clock import FixedClock
 from legvise.errors import BadArgument, NotFound
 from legvise.ids import parse_symbol
@@ -161,3 +170,74 @@ def test_anything_else_goes_out_as_its_text(capsys: pytest.CaptureFixture[str]) 
 def test_the_output_reads_back_as_json(capsys: pytest.CaptureFixture[str]) -> None:
     echo_json({"a": 1, "b": "two"})
     assert json.loads(capsys.readouterr().out) == {"a": 1, "b": "two"}
+
+
+# Where an export writes. Three commands opened and closed their own handle
+# before this, and one of them would have closed standard output.
+
+
+def test_writing_with_no_path_hands_back_standard_output() -> None:
+    with writing_to(None) as handle:
+        assert handle is sys.stdout
+
+
+def test_writing_with_no_path_leaves_standard_output_open() -> None:
+    with writing_to(None):
+        pass
+    assert not sys.stdout.closed
+
+
+def test_writing_twice_with_no_path_is_allowed() -> None:
+    for _ in range(2):
+        with writing_to(None) as handle:
+            handle.write("")
+    assert not sys.stdout.closed
+
+
+def test_writing_to_a_path_creates_the_file(tmp_path: Path) -> None:
+    target = tmp_path / "out.csv"
+    with writing_to(target) as handle:
+        handle.write("a,b\n")
+    assert target.read_text(encoding="utf-8") == "a,b\n"
+
+
+def test_writing_to_a_path_closes_the_handle(tmp_path: Path) -> None:
+    with writing_to(tmp_path / "out.csv") as handle:
+        handle.write("x")
+    assert handle.closed
+
+
+def test_a_failure_partway_through_still_closes_the_handle(tmp_path: Path) -> None:
+    target = tmp_path / "out.csv"
+    with pytest.raises(BadArgument), writing_to(target) as handle:
+        handle.write("x")
+        raise BadArgument("rows", "x", "no")
+    assert handle.closed
+
+
+def test_writing_to_a_path_does_not_translate_line_endings(tmp_path: Path) -> None:
+    target = tmp_path / "out.csv"
+    with writing_to(target) as handle:
+        handle.write("a\nb\n")
+    assert target.read_bytes() == b"a\nb\n"
+
+
+def test_the_shared_out_option_carries_a_path(tmp_path: Path) -> None:
+    @click.command()
+    @out_option
+    def sink(target: Path | None) -> None:
+        """Print what it was told to write to."""
+        click.echo("none" if target is None else str(target))
+
+    result = CliRunner().invoke(sink, ["--out", str(tmp_path / "x.csv")])
+    assert result.output.strip().endswith("x.csv")
+
+
+def test_the_shared_out_option_defaults_to_nothing() -> None:
+    @click.command()
+    @out_option
+    def sink(target: Path | None) -> None:
+        """Print what it was told to write to."""
+        click.echo("none" if target is None else str(target))
+
+    assert CliRunner().invoke(sink, []).output.strip() == "none"

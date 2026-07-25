@@ -264,3 +264,74 @@ def test_a_json_desk_report_lists_the_gaps(desk: Run) -> None:
     payload = json.loads(result.output[: result.output.rindex("}") + 1])
     assert payload["can_scan"] is False
     assert any("no trailing volume" in gap for gap in payload["gaps"])
+
+
+# The terminal and the exported file are one shape, not two that resemble
+# each other. These were separate dictionaries and had already drifted apart.
+
+
+def test_the_printed_session_matches_the_exported_one(planned: tuple[Run, str, str]) -> None:
+    desk, session, _ = planned
+    printed = desk("report", "session", session, "--json").output
+    exported = desk("report", "export", session, "--format", "json").output
+    assert json.loads(printed) == json.loads(exported)
+
+
+def test_the_printed_session_and_the_export_are_the_same_bytes(
+    planned: tuple[Run, str, str],
+) -> None:
+    desk, session, _ = planned
+    printed = desk("report", "session", session, "--json").output
+    exported = desk("report", "export", session, "--format", "json").output
+    assert printed == exported
+
+
+def test_the_printed_session_carries_the_symbols_it_looked_at(
+    planned: tuple[Run, str, str],
+) -> None:
+    desk, session, _ = planned
+    payload = json.loads(desk("report", "session", session, "--json").output)
+    assert payload["symbols"] == ["BTC-USD"]
+    assert sorted(payload["venues"]) == ["kraken", "okx"]
+
+
+def test_the_printed_session_spells_its_clauses_as_a_list(planned: tuple[Run, str, str]) -> None:
+    desk, session, _ = planned
+    payload = json.loads(desk("report", "session", session, "--json").output)
+    assert isinstance(payload["clauses"], list)
+
+
+def test_the_printed_edge_matches_the_exported_one(planned: tuple[Run, str, str]) -> None:
+    desk, session, _ = planned
+    printed = desk("report", "edge", "--session", session, "--json").output
+    exported = desk("report", "export-edge", "--session", session).output
+    assert json.loads(printed) == json.loads(exported)
+
+
+def test_the_printed_edge_carries_a_line_for_every_plan(planned: tuple[Run, str, str]) -> None:
+    desk, session, ref = planned
+    desk("fill", "record", ref, "0", "e1", "--price", "100.00", "--size", "2")
+    desk("fill", "record", ref, "1", "e2", "--price", "101.00", "--size", "2")
+    payload = json.loads(desk("report", "edge", "--session", session, "--json").output)
+    assert [line["ref"] for line in payload["lines"]] == [ref]
+
+
+def test_the_desk_page_names_what_each_venue_is_missing(seeded: Run) -> None:
+    result = seeded("report", "desk", "--json", expect=1)
+    payload = json.loads(result.output[: result.output.rindex("}") + 1])
+    assert payload["can_scan"] is False
+    assert any(venue["gaps"] for venue in payload["venues"])
+
+
+def test_the_desk_page_reports_a_wired_desk_as_ready(desk: Run) -> None:
+    payload = json.loads(desk("report", "desk", "--json").output)
+    assert payload["can_scan"] is True
+    assert all(venue["gaps"] == [] for venue in payload["venues"])
+
+
+def test_an_export_to_a_path_says_what_it_wrote(planned: tuple[Run, str, str], book: Path) -> None:
+    desk, session, _ = planned
+    target = book.parent / "session.json"
+    output = desk("report", "export", session, "--format", "json", "--out", str(target)).output
+    assert "wrote 1 plans" in output
+    assert json.loads(target.read_text(encoding="utf-8"))["plans"] == 1
