@@ -5,6 +5,8 @@ from __future__ import annotations
 from legvise.store.schema import MIGRATIONS
 from tests.cli.conftest import Run
 
+CUTOFF = "2025-09-01T00:00:00+00:00"
+
 
 def test_the_status_reports_the_current_schema(run: Run) -> None:
     output = run("db", "status").output
@@ -78,3 +80,94 @@ def test_a_vacuum_reports_the_size_either_side(seeded: Run) -> None:
 def test_a_vacuum_leaves_the_data_alone(seeded: Run) -> None:
     seeded("db", "vacuum")
     assert "kraken" in seeded("venue", "list").output
+
+
+# Pruning. The command took its cutoff and dropped everything older than it,
+# newest snapshot of a market included, which quietly retired the market.
+
+
+def a_desk(run: Run) -> Run:
+    """Two venues, one market each, and two snapshots a day apart."""
+    for code, name in (("kraken", "Kraken"), ("okx", "OKX")):
+        run("venue", "add", code, name, "--staleness-ms", "750", "--depth-bps", "35", "--cap", "1")
+        for day in ("01", "02"):
+            run(
+                "book",
+                "load",
+                code,
+                "BTC-USD",
+                "--bid",
+                "99:1",
+                "--ask",
+                "100:1",
+                "--observed-at",
+                f"2025-08-{day}T09:00:00+00:00",
+            )
+    return run
+
+
+def test_pruning_keeps_the_newest_snapshot_of_every_market(run: Run) -> None:
+    desk = a_desk(run)
+    output = desk("db", "prune", "--before", CUTOFF).output
+    assert "snapshots  2" in output
+    assert "held       2 markets" in output
+
+
+def test_a_pruned_market_can_still_be_read(run: Run) -> None:
+    desk = a_desk(run)
+    desk("db", "prune", "--before", CUTOFF)
+    output = desk("book", "show", "kraken", "BTC-USD").output
+    assert "observed 2025-08-02T09:00:00+00:00" in output
+
+
+def test_a_dry_run_removes_nothing(run: Run) -> None:
+    desk = a_desk(run)
+    output = desk("db", "prune", "--before", CUTOFF, "--dry-run").output
+    assert "dry run    nothing was removed" in output
+    assert "snapshots  2" in desk("db", "prune", "--before", CUTOFF, "--dry-run").output
+
+
+def test_a_dry_run_and_the_sweep_report_the_same_count(run: Run) -> None:
+    desk = a_desk(run)
+    dry = desk("db", "prune", "--before", CUTOFF, "--dry-run").output
+    wet = desk("db", "prune", "--before", CUTOFF).output
+    assert "snapshots  2" in dry
+    assert "snapshots  2" in wet
+
+
+def test_pruning_says_how_many_rows_it_took(run: Run) -> None:
+    desk = a_desk(run)
+    assert "removed    2 rows" in desk("db", "prune", "--before", CUTOFF).output
+
+
+def test_pruning_by_days_counts_back_from_the_clock(run: Run) -> None:
+    desk = a_desk(run)
+    output = desk("db", "prune", "--keep-days", "1").output
+    assert "snapshots  2" in output
+
+
+def test_pruning_that_keeps_no_days_is_refused(run: Run) -> None:
+    a_desk(run)("db", "prune", "--keep-days", "0", expect=1)
+
+
+def test_pruning_needs_a_cutoff_of_some_kind(run: Run) -> None:
+    run("db", "prune", expect=2)
+
+
+def test_pruning_takes_one_cutoff_and_not_two(run: Run) -> None:
+    run("db", "prune", "--before", CUTOFF, "--keep-days", "7", expect=2)
+
+
+def test_pruning_needs_an_instant_with_an_offset(run: Run) -> None:
+    run("db", "prune", "--before", "2025-09-01", expect=1)
+
+
+def test_pruning_an_empty_book_takes_nothing(run: Run) -> None:
+    output = run("db", "prune", "--before", CUTOFF).output
+    assert "snapshots  0" in output
+    assert "removed    0 rows" in output
+
+
+def test_pruning_prints_the_cutoff_it_used(run: Run) -> None:
+    output = run("db", "prune", "--before", CUTOFF).output
+    assert "cutoff     2025-09-01T00:00:00+00:00" in output

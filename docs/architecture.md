@@ -9,7 +9,7 @@ or any lower one, and `check_layers` refuses anything else.
 | --- | --- | --- | --- | --- |
 | `base` | 6 | 6 | - | decimals, identifiers, the clock, the rule book |
 | `model` | 11 | 11 | `base` | the records, and what they refuse to be |
-| `store` | 13 | 13 | `base`, `model` | SQLite, migrations, one repository per aggregate |
+| `store` | 14 | 14 | `base`, `model` | SQLite, migrations, one repository per aggregate |
 | `domain` | 15 | 15 | `base`, `model`, `store` | depth, staleness, fees, bands, caps, transfer routes |
 | `scan` | 9 | 9 | `base`, `domain`, `model`, `store` | the cross venue and triangular passes, and attribution |
 | `report` | 6 | 6 | `base`, `domain`, `model`, `scan`, `store` | session, edge, inventory and desk reports |
@@ -51,6 +51,7 @@ or any lower one, and `check_layers` refuses anything else.
 - `legvise.store.migrations`
 - `legvise.store.networks`
 - `legvise.store.plans`
+- `legvise.store.retention`
 - `legvise.store.schema`
 - `legvise.store.stats`
 - `legvise.store.venues`
@@ -141,4 +142,4 @@ or any lower one, and `check_layers` refuses anything else.
 - `legvise.tools.smoke`
 - `legvise.tools.walk`
 
-101 modules across 8 layers.
+102 modules across 8 layers.

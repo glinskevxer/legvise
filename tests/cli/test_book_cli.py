@@ -109,16 +109,6 @@ def test_an_unknown_side_is_a_usage_error(loaded: Run) -> None:
     loaded("book", "levels", "kraken", "BTC-USD", "middle", expect=2)
 
 
-def test_pruning_drops_the_old_snapshots(loaded: Run) -> None:
-    result = loaded("book", "prune", "2025-08-02T00:00:00+00:00")
-    assert "dropped 1 snapshots" in result.output
-    loaded("book", "show", "kraken", "BTC-USD", expect=1)
-
-
-def test_pruning_needs_an_instant_with_an_offset(loaded: Run) -> None:
-    loaded("book", "prune", "2025-08-02", expect=1)
-
-
 def test_a_snapshot_can_be_read_from_standard_input(seeded: Run, book: object) -> None:
     runner = CliRunner()
     result = runner.invoke(

@@ -139,19 +139,6 @@ def touch(ctx: click.Context, symbol: str) -> None:
     echo_rows(rows, ("venue", "bid", "ask", "observed"))
 
 
-@group.command("prune")
-@click.argument("before")
-@click.pass_context
-def prune(ctx: click.Context, before: str) -> None:
-    """Drop every snapshot observed before an instant."""
-    context = app(ctx)
-    at = parse_instant(before, field="before")
-    with context.db.tx():
-        gone = BookStore(context.db).prune_before(at)
-    if not context.quiet:
-        click.echo(f"dropped {gone} snapshots")
-
-
 @group.command("levels")
 @click.argument("venue")
 @click.argument("symbol")

@@ -63,10 +63,6 @@ Store one snapshot of a market.
 | `--sequence` |  | Feed sequence number. |
 | `--stdin` |  | Read side:price:size lines instead. |
 
-### `legvise book prune BEFORE`
-
-Drop every snapshot observed before an instant.
-
 ### `legvise book show VENUE SYMBOL`
 
 Print the newest snapshot for a market on a venue.
@@ -90,6 +86,16 @@ List the migrations this book has applied, and when.
 ### `legvise db migrate`
 
 Bring the book up to the current schema and say what ran.
+
+### `legvise db prune`
+
+Drop old snapshots and untraded sessions, keeping what is load bearing.
+
+| option | default | what it does |
+| --- | --- | --- |
+| `--before` |  | Drop what is older than this instant. |
+| `--keep-days` |  | Drop what is older than this many days. |
+| `--dry-run` |  | Count what would go and change nothing. |
 
 ### `legvise db status`
 

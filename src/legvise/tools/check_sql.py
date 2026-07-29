@@ -9,9 +9,11 @@ every read path. Every query names its columns.
 
 **No value interpolated into a statement.** A statement may be built from a
 module level constant -- the column lists are, and that is fine because they are
-written by the same file -- but anything that came from outside goes in as a
-placeholder. The check looks at what an f-string interpolates and refuses
-anything that is not a known constant.
+written by the same file and nothing from outside can reach them -- but anything
+else goes in as a placeholder. The constants are found by reading the module
+rather than listed here. They were listed here once, all eleven of them, which
+made adding a column list to the store a change in two files and meant the check
+went quiet for anyone who only made the first one.
 
 **SQL only in `legvise.store`.** A `SELECT` in a CLI module is a repository
 somebody did not write, and it will not be the one the tests cover.
@@ -26,7 +28,7 @@ from typing import Final
 
 from legvise.tools.walk import SourceFile, report, source_files
 
-__all__ = ["main", "problems", "statements_in"]
+__all__ = ["main", "module_constants", "problems", "statements_in"]
 
 # Case sensitive on purpose. Every statement in this package spells its keywords
 # in upper case, and matching case-insensitively turns the word "select" in an
@@ -36,25 +38,9 @@ _SQL: Final = re.compile(
 )
 _STAR: Final = re.compile(r"SELECT\s+\*")
 
-ALLOWED_INTERPOLATIONS: Final = frozenset(
-    {
-        "_COLUMNS",
-        "_SNAPSHOT_COLUMNS",
-        "_LEVEL_COLUMNS",
-        "_TIER_COLUMNS",
-        "_POSITION_COLUMNS",
-        "_BAND_COLUMNS",
-        "_NETWORK_COLUMNS",
-        "_VENUE_NETWORK_COLUMNS",
-        "_PLAN_COLUMNS",
-        "_SESSION_COLUMNS",
-        "_LEG_COLUMNS",
-        # Fragments a repository chooses between two literals, never values.
-        "where",
-        "join",
-        "name",
-    }
-)
+# Fragments a repository chooses between two literals, never values. These
+# are locals rather than constants, so reading the module cannot find them.
+ALLOWED_INTERPOLATIONS: Final = frozenset({"where", "join", "name"})
 
 SQL_LAYERS: Final = ("legvise.store",)
 
@@ -71,6 +57,45 @@ def _is_sql(text: str) -> bool:
 def statements_in(source: SourceFile) -> tuple[str, ...]:
     """Every string literal in a module that looks like SQL."""
     return tuple(text for text in source.code_strings() if _is_sql(text))
+
+
+def module_constants(source: SourceFile) -> frozenset[str]:
+    """Every module level name bound to a literal, or to other such names.
+
+    Read in source order, so a constant assembled from the ones above it counts
+    as one too. A name bound to anything else -- a call, an argument, a value
+    read at import time -- is not a constant and does not get in.
+    """
+    found: set[str] = set()
+    for node in source.tree.body:
+        target = _assigned_name(node)
+        value = getattr(node, "value", None)
+        if target and value is not None and _is_static(value, found):
+            found.add(target)
+    return frozenset(found)
+
+
+def _assigned_name(node: ast.stmt) -> str | None:
+    if isinstance(node, ast.Assign) and len(node.targets) == 1:
+        first = node.targets[0]
+        return first.id if isinstance(first, ast.Name) else None
+    if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+        return node.target.id
+    return None
+
+
+def _is_static(node: ast.expr, known: set[str]) -> bool:
+    if isinstance(node, ast.Constant):
+        return True
+    if isinstance(node, ast.JoinedStr):
+        return all(_is_static_part(part, known) for part in node.values)
+    return False
+
+
+def _is_static_part(part: ast.expr, known: set[str]) -> bool:
+    if isinstance(part, ast.Constant):
+        return True
+    return isinstance(part, ast.FormattedValue) and _name_of(part.value) in known
 
 
 def _interpolated_names(source: SourceFile) -> list[tuple[str, str]]:
@@ -109,8 +134,9 @@ def problems() -> list[str]:
         for statement in statements:
             if _STAR.search(statement):
                 found.append(f"{source.module} uses SELECT * in {_first_words(statement)}")
+        allowed = ALLOWED_INTERPOLATIONS | module_constants(source)
         for statement, name in _interpolated_names(source):
-            if name not in ALLOWED_INTERPOLATIONS:
+            if name not in allowed:
                 found.append(f"{source.module} interpolates {name} into {_first_words(statement)}")
     return found
 

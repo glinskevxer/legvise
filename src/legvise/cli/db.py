@@ -5,6 +5,8 @@ from __future__ import annotations
 import click
 
 from legvise.cli.options import app, echo_rows
+from legvise.clock import parse_instant
+from legvise.store.retention import Retention
 from legvise.store.schema import MIGRATIONS, install
 from legvise.store.stats import (
     applied_steps,
@@ -90,3 +92,38 @@ def vacuum(ctx: click.Context) -> None:
     before, after = compact(context.db)
     if not context.quiet:
         click.echo(f"{before} bytes before, {after} after")
+
+
+@group.command("prune")
+@click.option("--before", default=None, help="Drop what is older than this instant.")
+@click.option("--keep-days", type=int, default=None, help="Drop what is older than this many days.")
+@click.option("--dry-run", is_flag=True, help="Count what would go and change nothing.")
+@click.pass_context
+def prune(ctx: click.Context, before: str | None, keep_days: int | None, dry_run: bool) -> None:
+    """Drop old snapshots and untraded sessions, keeping what is load bearing.
+
+    Two things survive their age. The newest snapshot of a market stays, or the
+    market leaves the rotation without saying so. A session with a fill against
+    it stays, because that pair is the record of a trade.
+
+    Give one of `--before` or `--keep-days`. `--keep-days` counts back from the
+    clock, so the same command in a nightly job means a rolling window rather
+    than a date somebody has to remember to move.
+    """
+    context = app(ctx)
+    if (before is None) == (keep_days is None):
+        raise click.UsageError("give one of --before or --keep-days")
+    policy = Retention(context.db)
+    at = (
+        parse_instant(before, field="before")
+        if before is not None
+        else policy.cutoff_from(context.clock.now(), keep_days or 0)
+    )
+    found = policy.survey(at) if dry_run else policy.sweep(at)
+    click.echo(f"cutoff     {at.isoformat()}")
+    for line in found.lines():
+        click.echo(line)
+    if dry_run:
+        click.echo("dry run    nothing was removed")
+    elif not context.quiet:
+        click.echo(f"removed    {found.rows} rows")

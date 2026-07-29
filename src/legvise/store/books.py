@@ -123,14 +123,6 @@ class BookStore:
         found = (self.latest(as_text(r, "venue_code"), key) for r in rows)
         return tuple(book for book in found if book is not None)
 
-    def prune_before(self, at: dt.datetime) -> int:
-        """Drop snapshots older than `at`, returning how many went."""
-        with self._db.tx():
-            cursor = self._db.execute(
-                "DELETE FROM book_snapshot WHERE observed_at < ?", (to_text(at),)
-            )
-            return int(cursor.rowcount)
-
     def count(self) -> int:
         """How many snapshots are on file."""
         return int(self._db.scalar("SELECT count(*) FROM book_snapshot") or 0)

@@ -121,19 +121,6 @@ def test_the_latest_across_venues_gets_one_book_each(store: BookStore) -> None:
     assert found[0].sequence == 30
 
 
-def test_pruning_drops_the_old_snapshots_and_says_how_many(store: BookStore) -> None:
-    store.add(a_book(offset_s=0))
-    store.add(a_book(offset_s=60))
-    assert store.prune_before(AT + dt.timedelta(seconds=30)) == 1
-    assert store.count() == 1
-
-
-def test_pruning_takes_the_levels_with_it(db: Database, store: BookStore) -> None:
-    store.add(a_book(offset_s=0))
-    store.prune_before(AT + dt.timedelta(seconds=30))
-    assert db.scalar("SELECT count(*) FROM book_level") == 0
-
-
 def test_dropping_a_venue_takes_its_snapshots(db: Database, store: BookStore) -> None:
     store.add(a_book("kraken"))
     VenueStore(db).remove("kraken")
