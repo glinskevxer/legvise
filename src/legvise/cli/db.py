@@ -6,6 +6,7 @@ import click
 
 from legvise.cli.options import app, echo_rows
 from legvise.clock import parse_instant
+from legvise.store.integrity import check_book, findings_by_kind
 from legvise.store.retention import Retention
 from legvise.store.schema import MIGRATIONS, install
 from legvise.store.stats import (
@@ -127,3 +128,30 @@ def prune(ctx: click.Context, before: str | None, keep_days: int | None, dry_run
         click.echo("dry run    nothing was removed")
     elif not context.quiet:
         click.echo(f"removed    {found.rows} rows")
+
+
+@group.command("verify")
+@click.option("--limit", type=int, default=20, show_default=True, help="Most findings to print.")
+@click.pass_context
+def verify(ctx: click.Context, limit: int) -> None:
+    """Read the whole book back and say whether it still adds up.
+
+    Worth running after a restore, after a migration, and on any file that came
+    from somewhere other than this tool. Nothing here can fail on a book this
+    tool wrote and nothing else touched, which is the point: a finding means
+    something else touched it.
+
+    Exits non zero when anything is wrong, so a nightly job can watch it.
+    """
+    context = app(ctx)
+    found = check_book(context.db)
+    for kind, hits in findings_by_kind(found).items():
+        click.echo(f"{kind:<12} {hits}")
+    for finding in found[:limit]:
+        click.echo(str(finding), err=True)
+    if len(found) > limit:
+        click.echo(f"{len(found) - limit} more not shown", err=True)
+    if found:
+        raise click.ClickException(f"the book has {len(found)} problem(s)")
+    if not context.quiet:
+        click.echo("the book adds up")

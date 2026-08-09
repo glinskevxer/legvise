@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
+from legvise.store.db import Database
 from legvise.store.schema import MIGRATIONS
 from tests.cli.conftest import Run
 
@@ -171,3 +174,57 @@ def test_pruning_an_empty_book_takes_nothing(run: Run) -> None:
 def test_pruning_prints_the_cutoff_it_used(run: Run) -> None:
     output = run("db", "prune", "--before", CUTOFF).output
     assert "cutoff     2025-09-01T00:00:00+00:00" in output
+
+
+# Verifying. A nightly job runs this against the restored file, so the exit
+# code carries the answer and the findings go to standard error.
+
+
+def tamper(book: Path, ref: str) -> None:
+    """Break one plan's arithmetic the way a hand edit at two in the morning would."""
+    handle = Database.open(book)
+    with handle.tx():
+        handle.execute("UPDATE plan SET net_bps = ? WHERE ref = ?", ("999", ref))
+    handle.close()
+
+
+def test_a_fresh_book_adds_up(run: Run) -> None:
+    assert "the book adds up" in run("db", "verify").output
+
+
+def test_a_scanned_book_adds_up(scanned: tuple[Run, str]) -> None:
+    desk, _ = scanned
+    assert "the book adds up" in desk("db", "verify").output
+
+
+def test_a_tampered_plan_makes_the_command_fail(planned: tuple[Run, str, str], book: Path) -> None:
+    desk, _, ref = planned
+    tamper(book, ref)
+    desk("db", "verify", expect=1)
+
+
+def test_a_tampered_plan_is_counted_by_kind(planned: tuple[Run, str, str], book: Path) -> None:
+    desk, _, ref = planned
+    tamper(book, ref)
+    assert "arithmetic   1" in desk("db", "verify", expect=1).output
+
+
+def test_a_tampered_plan_names_the_row_it_found(planned: tuple[Run, str, str], book: Path) -> None:
+    desk, _, ref = planned
+    tamper(book, ref)
+    assert ref in desk("db", "verify", expect=1).output
+
+
+def test_the_verdict_says_how_many_problems_there_are(
+    planned: tuple[Run, str, str], book: Path
+) -> None:
+    desk, _, ref = planned
+    tamper(book, ref)
+    assert "the book has 1 problem(s)" in desk("db", "verify", expect=1).output
+
+
+def test_the_findings_can_be_capped(planned: tuple[Run, str, str], book: Path) -> None:
+    desk, _, ref = planned
+    tamper(book, ref)
+    output = desk("db", "verify", "--limit", "0", expect=1).output
+    assert "1 more not shown" in output

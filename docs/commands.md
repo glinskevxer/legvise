@@ -109,6 +109,14 @@ List every table and how many rows it holds, biggest first.
 
 Rebuild the file, giving back the space pruning left behind.
 
+### `legvise db verify`
+
+Read the whole book back and say whether it still adds up.
+
+| option | default | what it does |
+| --- | --- | --- |
+| `--limit` | `20` | Most findings to print. |
+
 ## `legvise fee`
 
 Load fee ladders and record what the desk has traded.
@@ -537,4 +545,4 @@ List the venues on file.
 
 Print one venue.
 
-67 commands across 13 groups.
+68 commands across 13 groups.
