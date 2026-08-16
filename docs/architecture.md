@@ -7,13 +7,13 @@ or any lower one, and `check_layers` refuses anything else.
 
 | layer | modules | reachable | depends on | holds |
 | --- | --- | --- | --- | --- |
-| `base` | 6 | 6 | - | decimals, identifiers, the clock, the rule book |
+| `base` | 7 | 7 | - | decimals, identifiers, the clock, the rule book |
 | `model` | 11 | 11 | `base` | the records, and what they refuse to be |
 | `store` | 15 | 15 | `base`, `model` | SQLite, migrations, one repository per aggregate |
 | `domain` | 15 | 15 | `base`, `model`, `store` | depth, staleness, fees, bands, caps, transfer routes |
 | `scan` | 9 | 9 | `base`, `domain`, `model`, `store` | the cross venue and triangular passes, and attribution |
 | `report` | 6 | 6 | `base`, `domain`, `model`, `scan`, `store` | session, edge, inventory and desk reports |
-| `cli` | 16 | 16 | `base`, `domain`, `model`, `report`, `scan`, `store` | the command tree |
+| `cli` | 17 | 17 | `base`, `domain`, `model`, `report`, `scan`, `store` | the command tree |
 | `tools` | 25 | 0 | `base`, `cli`, `domain`, `model`, `report`, `scan`, `store` | the checks, and the documents they generate |
 
 ## `base`
@@ -24,6 +24,7 @@ or any lower one, and `check_layers` refuses anything else.
 - `legvise.money`
 - `legvise.rows`
 - `legvise.rules`
+- `legvise.settings`
 
 ## `model`
 
@@ -100,6 +101,7 @@ or any lower one, and `check_layers` refuses anything else.
 
 - `legvise.cli.audit`
 - `legvise.cli.book`
+- `legvise.cli.config`
 - `legvise.cli.db`
 - `legvise.cli.fee`
 - `legvise.cli.fill`
@@ -143,4 +145,4 @@ or any lower one, and `check_layers` refuses anything else.
 - `legvise.tools.smoke`
 - `legvise.tools.walk`
 
-103 modules across 8 layers.
+105 modules across 8 layers.

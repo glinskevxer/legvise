@@ -31,7 +31,7 @@ from legvise.tools.walk import report, source_files
 __all__ = ["LAYERS", "layer_of", "main", "problems"]
 
 LAYERS: Final = (
-    ("base", ("errors", "money", "ids", "clock", "rows", "rules")),
+    ("base", ("errors", "money", "ids", "clock", "rows", "rules", "settings")),
     ("model", ("model",)),
     ("store", ("store",)),
     ("domain", ("market", "fees", "risk", "routing")),

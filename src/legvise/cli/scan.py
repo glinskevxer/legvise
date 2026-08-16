@@ -11,6 +11,7 @@ from legvise.routing.pricer import StoreRebalancePricer
 from legvise.routing.rebalance import CarryTerms
 from legvise.scan.direct import ScanTerms
 from legvise.scan.session import Scanner
+from legvise.settings import resolve, settled
 from legvise.store.db import copy_into_memory
 from legvise.store.networks import NetworkStore
 from legvise.store.plans import PlanStore
@@ -24,23 +25,15 @@ def group() -> None:
 
 
 @group.command("run")
-@click.option("--min-edge-bps", default="2", show_default=True, help="Floor for the net edge.")
-@click.option(
-    "--window-ms", type=int, default=250, show_default=True, help="How far apart two books may be."
-)
-@click.option("--size", default="1", show_default=True, help="Base size the desk wants per leg.")
-@click.option("--venue-cap", default="250000", show_default=True, help="Notional cap per venue.")
-@click.option("--asset-cap", default="400000", show_default=True, help="Net cap per asset.")
-@click.option("--gross-cap", default="1000000", show_default=True, help="Desk wide hard stop.")
-@click.option(
-    "--carry-bps-hour", default="6", show_default=True, help="Charge for capital in flight."
-)
-@click.option(
-    "--cycles", type=int, default=10, show_default=True, help="Plans one transfer serves."
-)
-@click.option(
-    "--stranded-bps", default="250", show_default=True, help="Charge when no route is open."
-)
+@click.option("--min-edge-bps", default=None, help="Floor for the net edge.")
+@click.option("--window-ms", type=int, default=None, help="How far apart two books may be.")
+@click.option("--size", default=None, help="Base size the desk wants per leg.")
+@click.option("--venue-cap", default=None, help="Notional cap per venue.")
+@click.option("--asset-cap", default=None, help="Net cap per asset.")
+@click.option("--gross-cap", default=None, help="Desk wide hard stop.")
+@click.option("--carry-bps-hour", default=None, help="Charge for capital in flight.")
+@click.option("--cycles", type=int, default=None, help="Plans one transfer serves.")
+@click.option("--stranded-bps", default=None, help="Charge when no route is open.")
 @click.option(
     "--counter", type=int, default=0, show_default=True, help="Session number for the day."
 )
@@ -52,49 +45,69 @@ def group() -> None:
 @click.pass_context
 def run(
     ctx: click.Context,
-    min_edge_bps: str,
-    window_ms: int,
-    size: str,
-    venue_cap: str,
-    asset_cap: str,
-    gross_cap: str,
-    carry_bps_hour: str,
-    cycles: int,
-    stranded_bps: str,
+    min_edge_bps: str | None,
+    window_ms: int | None,
+    size: str | None,
+    venue_cap: str | None,
+    asset_cap: str | None,
+    gross_cap: str | None,
+    carry_bps_hour: str | None,
+    cycles: int | None,
+    stranded_bps: str | None,
     counter: int,
     dry_run: bool,
 ) -> None:
     """Scan every market that is live on two or more venues.
+
+    Every number here comes from the settings file when `--config` named one,
+    and from what the tool ships with otherwise. A flag beats both, for this
+    run only. `legvise config show` says which level each one came from.
 
     With `--dry-run` the whole scan runs against a throwaway copy of the book,
     so an operator can try a different edge floor or a different size without
     leaving a session behind. The numbers are the same; nothing is written.
     """
     context = app(ctx)
+    chosen = settled(
+        resolve(
+            from_file=context.settings,
+            from_flags={
+                "min_edge_bps": min_edge_bps,
+                "window_ms": window_ms,
+                "size": size,
+                "venue_cap": venue_cap,
+                "asset_cap": asset_cap,
+                "gross_cap": gross_cap,
+                "carry_bps_hour": carry_bps_hour,
+                "cycles": cycles,
+                "stranded_bps": stranded_bps,
+            },
+        )
+    )
     target = copy_into_memory(context.db) if dry_run else context.db
     scanner = Scanner(
         db=target,
         clock=context.clock,
         terms=ScanTerms(
-            min_edge_bps=dec(min_edge_bps, field="min_edge_bps"),
-            pairing_window_ms=window_ms,
-            wanted_size=dec(size, field="size"),
+            min_edge_bps=dec(str(chosen.min_edge_bps), field="min_edge_bps"),
+            pairing_window_ms=chosen.window_ms,
+            wanted_size=dec(str(chosen.size), field="size"),
         ),
         caps=CapSet(
-            venue_cap=dec(venue_cap, field="venue_cap"),
+            venue_cap=dec(str(chosen.venue_cap), field="venue_cap"),
             venue_used=dec("0"),
-            asset_cap=dec(asset_cap, field="asset_cap"),
+            asset_cap=dec(str(chosen.asset_cap), field="asset_cap"),
             asset_used=dec("0"),
-            gross_cap=dec(gross_cap, field="gross_cap"),
+            gross_cap=dec(str(chosen.gross_cap), field="gross_cap"),
             gross_used=dec("0"),
         ),
         pricer=StoreRebalancePricer(
             networks=NetworkStore(target),
             terms=CarryTerms(
-                carry_bps_per_hour=dec(carry_bps_hour, field="carry_bps_hour"),
-                cycles_served=cycles,
+                carry_bps_per_hour=dec(str(chosen.carry_bps_hour), field="carry_bps_hour"),
+                cycles_served=chosen.cycles,
             ),
-            stranded_bps=dec(stranded_bps, field="stranded_bps"),
+            stranded_bps=dec(str(chosen.stranded_bps), field="stranded_bps"),
         ),
     )
     report = scanner.run(counter=counter)

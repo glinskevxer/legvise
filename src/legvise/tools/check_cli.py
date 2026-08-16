@@ -22,7 +22,7 @@ import click
 from legvise.cli.main import cli
 from legvise.tools.walk import package_root, report
 
-__all__ = ["command_paths", "main", "problems", "registered_groups"]
+__all__ = ["command_paths", "main", "problems", "registered_groups", "value_options"]
 
 EXEMPT_MODULES = frozenset({"main", "options", "parsers"})
 
@@ -41,6 +41,21 @@ def _cli_modules() -> tuple[str, ...]:
             if path.stem not in EXEMPT_MODULES and not path.stem.startswith("__")
         )
     )
+
+
+def value_options() -> frozenset[str]:
+    """Every option spelling in the tree that takes a value after it.
+
+    A flag stands alone and an option is followed by its value, and from the
+    text of a command line the two are indistinguishable. Anything reading a
+    written invocation has to ask the tree which is which.
+    """
+    found: set[str] = set()
+    for _, command in [("", cli), *_walk_commands()]:
+        for param in command.params:
+            if isinstance(param, click.Option) and not param.is_flag:
+                found.update(param.opts)
+    return frozenset(found)
 
 
 def command_paths() -> tuple[str, ...]:

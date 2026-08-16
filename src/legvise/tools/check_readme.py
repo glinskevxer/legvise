@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 from typing import Final
 
-from legvise.tools.check_cli import command_paths, registered_groups
+from legvise.tools.check_cli import command_paths, registered_groups, value_options
 from legvise.tools.walk import repo_root, report
 
 __all__ = ["README_NAME", "cited_commands", "main", "problems", "readme_text"]
@@ -41,7 +41,7 @@ def _fenced_blocks(text: str) -> list[str]:
 
 
 def _command_of(tail: str) -> str | None:
-    words = [word for word in tail.split() if not word.startswith(_OPTION_START)]
+    words = _without_options(tail.split())
     if not words:
         return None
     if words[0] in {"--help", "--version"}:
@@ -49,6 +49,31 @@ def _command_of(tail: str) -> str | None:
     if len(words) == 1:
         return words[0]
     return f"{words[0]} {words[1]}"
+
+
+def _without_options(words: list[str]) -> list[str]:
+    """The words that name a command, with the options and their values dropped.
+
+    An option's value is a bare word and reads exactly like a command name, so
+    dropping only the words that start with a dash left `--config legvise.toml`
+    looking like a command called `legvise.toml`. Which options take a value is
+    a question for the tree, not for the text: `--quiet db verify` is a flag and
+    two words, and eating the word after it loses the command.
+
+    A value written as `--x=y` is one word and needs no such handling.
+    """
+    takes_value = value_options()
+    kept: list[str] = []
+    skip = False
+    for word in words:
+        if skip:
+            skip = False
+            continue
+        if word.startswith(_OPTION_START):
+            skip = word in takes_value
+            continue
+        kept.append(word)
+    return kept
 
 
 def cited_commands() -> tuple[str, ...]:

@@ -6,7 +6,7 @@ import click
 from click.testing import CliRunner
 
 from legvise.cli.main import cli
-from legvise.tools.check_cli import command_paths, problems, registered_groups
+from legvise.tools.check_cli import command_paths, problems, registered_groups, value_options
 
 
 def test_the_tree_is_complete_and_documented() -> None:
@@ -18,6 +18,7 @@ def test_every_group_the_desk_uses_is_registered() -> None:
     assert groups == {
         "audit",
         "book",
+        "config",
         "db",
         "fee",
         "fill",
@@ -62,3 +63,31 @@ def test_every_group_is_a_group_rather_than_a_bare_command() -> None:
 
 def test_the_tree_has_more_than_thirty_commands() -> None:
     assert len(command_paths()) > 30
+
+
+# Which options take a value. A flag stands alone and an option is followed by
+# its value, and anything reading a written command line has to know which.
+
+
+def test_an_option_that_takes_a_path_is_named() -> None:
+    assert "--db" in value_options()
+    assert "--config" in value_options()
+
+
+def test_a_flag_is_not_one_of_them() -> None:
+    assert "--quiet" not in value_options()
+    assert "--dry-run" not in value_options()
+    assert "--read-only" not in value_options()
+
+
+def test_an_option_on_a_subcommand_is_found_too() -> None:
+    assert "--min-edge-bps" in value_options()
+    assert "--keep-days" in value_options()
+
+
+def test_every_spelling_of_an_option_is_listed() -> None:
+    assert "--session" in value_options()
+
+
+def test_the_help_flag_is_not_an_option_that_takes_a_value() -> None:
+    assert "-h" not in value_options()

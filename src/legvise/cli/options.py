@@ -12,7 +12,7 @@ import json
 import sys
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import ROUND_HALF_EVEN, Decimal
 from pathlib import Path
 from typing import IO, Any
@@ -21,6 +21,7 @@ import click
 
 from legvise.clock import Clock, SystemClock
 from legvise.errors import LegviseError
+from legvise.settings import load
 from legvise.store.db import Database
 from legvise.store.schema import install
 
@@ -47,6 +48,8 @@ class Context:
     db: Database
     clock: Clock
     quiet: bool = False
+    settings: dict[str, str | int] = field(default_factory=dict)
+    config_path: Path | None = None
 
     def now_text(self) -> str:
         """The current instant as the store spells it."""
@@ -59,6 +62,7 @@ def open_context(
     clock: Clock | None = None,
     quiet: bool = False,
     read_only: bool = False,
+    config: Path | None = None,
 ) -> Context:
     """Open the book of record and bring it up to the current schema.
 
@@ -67,11 +71,18 @@ def open_context(
     be doing the one thing read only is for preventing.
     """
     ticker = clock or SystemClock()
+    settings = load(config) if config is not None else {}
     if read_only:
-        return Context(db=Database.open_read_only(path), clock=ticker, quiet=quiet)
+        return Context(
+            db=Database.open_read_only(path),
+            clock=ticker,
+            quiet=quiet,
+            settings=settings,
+            config_path=config,
+        )
     handle = Database.open(path)
     install(handle, applied_at=ticker.now().isoformat())
-    return Context(db=handle, clock=ticker, quiet=quiet)
+    return Context(db=handle, clock=ticker, quiet=quiet, settings=settings, config_path=config)
 
 
 def app(ctx: click.Context) -> Context:

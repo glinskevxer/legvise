@@ -15,6 +15,7 @@ from legvise import __version__
 from legvise.cli import (
     audit,
     book,
+    config,
     db,
     fee,
     fill,
@@ -43,6 +44,13 @@ __all__ = ["cli", "main"]
     type=click.Path(dir_okay=False, path_type=Path),
     help="Path to the book of record.",
 )
+@click.option(
+    "--config",
+    "config_path",
+    default=None,
+    type=click.Path(dir_okay=False, path_type=Path),
+    help="Settings file the scan reads its numbers from.",
+)
 @click.option("--quiet", is_flag=True, help="Print results only, no commentary.")
 @click.option(
     "--read-only",
@@ -50,9 +58,15 @@ __all__ = ["cli", "main"]
     help="Open the book so nothing can write to it, and skip the migration.",
 )
 @click.pass_context
-def cli(ctx: click.Context, db_path: Path, quiet: bool, read_only: bool) -> None:
+def cli(
+    ctx: click.Context,
+    db_path: Path,
+    config_path: Path | None,
+    quiet: bool,
+    read_only: bool,
+) -> None:
     """Scan for cross-venue arbitrage against books the desk already has."""
-    ctx.obj = open_context(db_path, quiet=quiet, read_only=read_only)
+    ctx.obj = open_context(db_path, quiet=quiet, read_only=read_only, config=config_path)
     ctx.call_on_close(_close)
 
 
@@ -63,6 +77,7 @@ def _close(obj: Context) -> None:
 
 cli.add_command(audit.group)
 cli.add_command(book.group)
+cli.add_command(config.group)
 cli.add_command(db.group)
 cli.add_command(fee.group)
 cli.add_command(fill.group)

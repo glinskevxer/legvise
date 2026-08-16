@@ -75,6 +75,26 @@ Print the newest snapshot for a market on a venue.
 
 Print the touch on every venue that has a book for a market.
 
+## `legvise config`
+
+Read the settings file and see which numbers it is deciding.
+
+### `legvise config check PATH`
+
+Read a settings file and say what it sets, without running anything.
+
+### `legvise config defaults`
+
+Print what the tool ships with, ignoring any file.
+
+### `legvise config show`
+
+Print every setting, its value, and the level that decided it.
+
+| option | default | what it does |
+| --- | --- | --- |
+| `--changed-only` |  | Skip the ones nobody has set. |
+
 ## `legvise db`
 
 Look after the SQLite file the desk keeps everything in.
@@ -490,15 +510,15 @@ Scan every market that is live on two or more venues.
 
 | option | default | what it does |
 | --- | --- | --- |
-| `--min-edge-bps` | `2` | Floor for the net edge. |
-| `--window-ms` | `250` | How far apart two books may be. |
-| `--size` | `1` | Base size the desk wants per leg. |
-| `--venue-cap` | `250000` | Notional cap per venue. |
-| `--asset-cap` | `400000` | Net cap per asset. |
-| `--gross-cap` | `1000000` | Desk wide hard stop. |
-| `--carry-bps-hour` | `6` | Charge for capital in flight. |
-| `--cycles` | `10` | Plans one transfer serves. |
-| `--stranded-bps` | `250` | Charge when no route is open. |
+| `--min-edge-bps` |  | Floor for the net edge. |
+| `--window-ms` |  | How far apart two books may be. |
+| `--size` |  | Base size the desk wants per leg. |
+| `--venue-cap` |  | Notional cap per venue. |
+| `--asset-cap` |  | Net cap per asset. |
+| `--gross-cap` |  | Desk wide hard stop. |
+| `--carry-bps-hour` |  | Charge for capital in flight. |
+| `--cycles` |  | Plans one transfer serves. |
+| `--stranded-bps` |  | Charge when no route is open. |
 | `--counter` |  | Session number for the day. |
 | `--dry-run` |  | Price everything against a throwaway copy and write nothing. |
 
@@ -545,4 +565,4 @@ List the venues on file.
 
 Print one venue.
 
-68 commands across 13 groups.
+71 commands across 14 groups.

@@ -101,17 +101,52 @@ legvise plan list S20250801.0000
 legvise plan rank S20250801.0000
 ```
 
+## Settings
+
+Eleven options on a scheduled `scan run` is a configuration file written badly.
+Put the numbers in a file instead and pass it once:
+
+```
+legvise --config legvise.toml config show
+legvise config defaults
+legvise config check legvise.toml
+```
+
+```toml
+[scan]
+min_edge_bps = "4"
+window_ms = 400
+size = "0.5"
+```
+
+A flag still wins, for that run only, so trying a wider floor for one scan does
+not mean editing the desk's settings and remembering to put them back. The
+`from` column in `config show` says which of the three levels decided each
+number, because a value of 2 that somebody set and a value of 2 nobody ever
+touched look identical otherwise. A key the tool does not recognise is refused
+rather than ignored, which is the difference between a typo you find now and a
+desk that traded on the default for a month.
+
 ## Looking after the file
 
 ```
 legvise db status
 legvise db tables
 legvise db applied
+legvise db prune --keep-days 30
+legvise db verify
 legvise db vacuum
 ```
 
-`book_level` is the table that grows without bound. `legvise book prune` takes
-the old snapshots out and `legvise db vacuum` gives the space back.
+`book_level` is the table that grows without bound. `legvise db prune` takes the
+old snapshots out and `legvise db vacuum` gives the space back. Pruning keeps
+two things whatever their age: the newest snapshot of every market, because
+dropping it retires the market without saying so, and any session with a fill
+against it, because that pair is the record of a trade.
+
+`legvise db verify` reads the whole book back and re-derives what it can. It
+cannot fail on a file this tool wrote and nothing else touched, which is the
+point of running it after a restore.
 
 ## Is anything missing
 
