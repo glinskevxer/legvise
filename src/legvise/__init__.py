@@ -7,4 +7,4 @@ scanner prices what it is given, and the caller decides whether to send orders.
 
 __all__ = ["__version__"]
 
-__version__ = "0.1.0"
+__version__ = "1.0.0"

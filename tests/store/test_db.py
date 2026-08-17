@@ -9,7 +9,13 @@ from pathlib import Path
 import pytest
 
 from legvise.errors import BadArgument, Conflict, NotFound
-from legvise.store.db import Database, connect, copy_into_memory
+from legvise.store.db import (
+    MINIMUM_SQLITE,
+    Database,
+    connect,
+    copy_into_memory,
+    require_sqlite,
+)
 
 
 @pytest.fixture()
@@ -217,3 +223,40 @@ def test_a_copy_keeps_foreign_keys_on(db: Database) -> None:
     copy = copy_into_memory(db)
     assert copy.scalar("PRAGMA foreign_keys") == 1
     copy.close()
+
+
+# The SQLite floor. The retention sweep uses a window function, and on a build
+# too old for one the sweep would take the newest snapshot of every market with
+# it, which is the one failure in this tool that nothing reports.
+
+
+def test_the_sqlite_this_build_links_against_is_new_enough() -> None:
+    require_sqlite()
+
+
+def test_a_sqlite_below_the_floor_is_refused() -> None:
+    with pytest.raises(BadArgument) as caught:
+        require_sqlite((3, 24, 0))
+    assert "older than 3.25.0" in caught.value.why
+
+
+def test_the_floor_itself_is_allowed() -> None:
+    require_sqlite(MINIMUM_SQLITE)
+
+
+def test_a_newer_sqlite_is_allowed() -> None:
+    require_sqlite((3, 45, 1))
+
+
+def test_a_four_part_version_is_read_to_three() -> None:
+    require_sqlite((3, 25, 0, 1))
+
+
+def test_the_floor_is_where_window_functions_arrived() -> None:
+    assert MINIMUM_SQLITE == (3, 25, 0)
+
+
+def test_opening_a_book_checks_the_version(tmp_path: Path) -> None:
+    handle = Database.open(tmp_path / "book.sqlite3")
+    assert handle.scalar("SELECT sqlite_version()")
+    handle.close()

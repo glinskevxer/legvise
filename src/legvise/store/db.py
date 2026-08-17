@@ -4,11 +4,13 @@ The desk's book of record is a single file. That is a deliberate choice: a scan
 is a read-mostly job against a few thousand rows, and an operator being able to
 copy the file to a laptop and open it is worth more here than a server.
 
-Two things are worth knowing before touching this module. Foreign keys are off
+Three things are worth knowing before touching this module. Foreign keys are off
 by default in SQLite and have to be turned on for every connection, so the
-constraint the schema declares is only enforced because `connect` says so. And
+constraint the schema declares is only enforced because `connect` says so.
 `sqlite3` opens its own implicit transactions unless isolation is disabled, so
-this module runs with `isolation_level=None` and issues BEGIN itself.
+this module runs with `isolation_level=None` and issues BEGIN itself. And the
+library version is checked at the door, because the one feature this tool needs
+from a modern SQLite fails at query time on an old one rather than at import.
 """
 
 from __future__ import annotations
@@ -22,7 +24,7 @@ from typing import Any, Final
 
 from legvise.errors import BadArgument, Conflict, NotFound
 
-__all__ = ["Database", "connect", "copy_into_memory"]
+__all__ = ["MINIMUM_SQLITE", "Database", "connect", "copy_into_memory", "require_sqlite"]
 
 _PRAGMAS: Final = (
     "PRAGMA journal_mode = WAL",
@@ -36,6 +38,22 @@ _PRAGMAS: Final = (
 _READ_PRAGMAS: Final = ("PRAGMA foreign_keys = ON", "PRAGMA busy_timeout = 4000")
 
 Param = str | int | float | bytes | None
+
+#: Window functions arrived in SQLite 3.25, and the retention sweep uses one to
+#: find the newest snapshot of each market. Without it the sweep would delete
+#: that row, which is the one failure in this tool that nothing reports: the
+#: market simply stops appearing in scans. Python ships its own SQLite on
+#: Windows and macOS and borrows the system one on Linux, so a long lived
+#: server can be new enough to run this and old enough to break it.
+MINIMUM_SQLITE: Final = (3, 25, 0)
+
+
+def require_sqlite(version: tuple[int, ...] = sqlite3.sqlite_version_info) -> None:
+    """Refuse a SQLite too old for the queries this tool writes."""
+    if tuple(version[:3]) < MINIMUM_SQLITE:
+        wanted = ".".join(str(part) for part in MINIMUM_SQLITE)
+        found = ".".join(str(part) for part in version[:3])
+        raise BadArgument("sqlite", found, f"is older than {wanted}, which this tool needs")
 
 
 def _adapt_decimal(value: Decimal) -> str:
@@ -60,6 +78,7 @@ def connect(path: str | Path, *, read_only: bool = False) -> sqlite3.Connection:
     dashboard pointed at production should not be able to apply a migration
     because somebody deployed it there first.
     """
+    require_sqlite()
     if read_only:
         conn = sqlite3.connect(
             f"file:{Path(path).as_posix()}?mode=ro", uri=True, isolation_level=None

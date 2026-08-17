@@ -167,3 +167,41 @@ def test_a_loaded_file_feeds_straight_into_the_resolver(tmp_path: Path) -> None:
     from_file = load(a_file(tmp_path, f"[{SECTION}]\ncycles = 4\n"))
     assert value_of("cycles", from_file=from_file) == 4
     assert source_of("cycles", from_file=from_file) == "file"
+
+
+# The example file that ships with the tree. The README shows a `[scan]` table
+# and CI runs `config check` against this one, so it has to stay loadable and
+# it has to keep naming settings that exist.
+
+
+def example_file() -> Path:
+    """The settings file the repository ships as documentation."""
+    return Path(__file__).resolve().parents[1] / "examples" / "legvise.toml"
+
+
+def test_the_example_settings_file_is_there() -> None:
+    assert example_file().exists()
+
+
+def test_the_example_settings_file_loads() -> None:
+    assert load(example_file())
+
+
+def test_the_example_names_every_setting_the_desk_has() -> None:
+    assert set(load(example_file())) == set(DEFAULTS.names())
+
+
+def test_the_example_sets_them_all_from_the_file() -> None:
+    found = resolve(from_file=load(example_file()))
+    assert all(item.source == "file" for item in found)
+
+
+def test_the_example_settings_collapse_into_a_record() -> None:
+    found = settled(resolve(from_file=load(example_file())))
+    assert found.min_edge_bps == "4"
+    assert found.window_ms == 400
+
+
+def test_the_example_explains_what_each_number_does() -> None:
+    text = example_file().read_text(encoding="utf-8")
+    assert text.count("#") > 15

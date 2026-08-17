@@ -16,6 +16,7 @@ from legvise.store.stats import (
     counts,
     oldest_snapshot,
     schema_version,
+    sqlite_version,
     total_rows,
 )
 
@@ -33,6 +34,7 @@ def status(ctx: click.Context) -> None:
     """Print the schema version, the row counts and the size."""
     context = app(ctx)
     click.echo(f"schema      {schema_version(context.db)} of {len(MIGRATIONS)}")
+    click.echo(f"sqlite      {sqlite_version()}")
     click.echo(f"rows        {total_rows(context.db)}")
     click.echo(f"size        {approximate_bytes(context.db)} bytes")
     oldest = oldest_snapshot(context.db)

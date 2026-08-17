@@ -3,6 +3,40 @@
 Newest first. Every entry says what changed for somebody using the tool, not
 what changed in the tree.
 
+## 1.0.0 - 2026-08-20
+
+The settings live in a file now, pruning stopped retiring markets, and there is
+a command that reads the whole book back and re-derives it.
+
+- **A settings file.** `legvise --config legvise.toml` reads the scan's numbers
+  out of a `[scan]` table, and a flag on the command line still beats it for
+  that run. `legvise config show` prints every setting with the level that
+  decided it, because a value nobody set and a value somebody set to the same
+  number look identical otherwise. A key the tool does not recognise is refused
+  rather than ignored.
+- **Pruning keeps what is load bearing.** `legvise db prune` replaces
+  `legvise book prune`, which dropped every snapshot older than its cutoff, the
+  newest one of a market included. A market with no snapshot is a market the
+  scanner skips and the desk status calls unconfigured, and nothing said so. The
+  newest snapshot of every market now stays whatever its age, and so does any
+  session with a fill against it. `--dry-run` counts without deleting, and
+  `--keep-days` counts back from the clock for a nightly job.
+- **`legvise db verify`.** Reads the whole book and re-derives the plan
+  arithmetic, the leg notionals, the foreign keys and the decimal spelling.
+  Nothing here can fail on a file this tool wrote and nothing else touched,
+  which is the point of running it after a restore.
+- **One JSON shape per report.** The printed `--json` and the exported file were
+  two dictionaries written months apart and they had already drifted: the
+  printed session dropped the symbols and the venues and spelled the clauses as
+  an object rather than a list. They are one function now.
+- **A SQLite floor.** The retention sweep needs window functions, so the version
+  is checked when the file is opened rather than when the query runs.
+  `legvise db status` prints it.
+- **Twenty three gates.** Sixteen self checks, five generated documents, the end
+  to end run, and a check that watches the other checks: every check that exists
+  is run by CI and collected by the release gate, and `check.sh` still finds
+  them all.
+
 ## 0.1.0 - 2026-05-07
 
 First release. A desk with inventory on several venues can set its venues up,

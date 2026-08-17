@@ -11,6 +11,7 @@ deletes anything; pruning is a decision an operator makes.
 
 from __future__ import annotations
 
+import sqlite3
 from dataclasses import dataclass
 
 from legvise.rows import as_int, as_optional_text, as_text
@@ -25,6 +26,7 @@ __all__ = [
     "counts",
     "oldest_snapshot",
     "schema_version",
+    "sqlite_version",
     "total_rows",
 ]
 
@@ -59,6 +61,17 @@ def counts(db: Database) -> tuple[TableCount, ...]:
 def total_rows(db: Database) -> int:
     """Every row in the book of record."""
     return sum(item.rows for item in counts(db))
+
+
+def sqlite_version() -> str:
+    """The SQLite library this build is linked against.
+
+    Worth printing beside the schema version. Python carries its own SQLite on
+    Windows and macOS and uses the system one on Linux, so two machines running
+    the same release of this tool can be running different databases, and the
+    difference only shows up in a query.
+    """
+    return sqlite3.sqlite_version
 
 
 def schema_version(db: Database) -> int:

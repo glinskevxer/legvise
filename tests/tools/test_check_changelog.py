@@ -45,15 +45,28 @@ def test_every_entry_says_something_about_the_release() -> None:
         assert body_of(entry.version), entry.version
 
 
-def test_the_current_entry_names_the_two_kinds_of_scan() -> None:
-    body = " ".join(body_of(__version__)).lower()
+def test_the_first_release_named_the_two_kinds_of_scan() -> None:
+    # Against the first entry rather than the current one. An entry describes
+    # its own release, and once there is a second one the top of the file is a
+    # list of what changed rather than a description of the whole tool.
+    body = " ".join(body_of("0.1.0")).lower()
     assert "cross venue" in body
     assert "triangular" in body
 
 
-def test_the_current_entry_names_the_edge_decomposition() -> None:
-    body = " ".join(body_of(__version__))
+def test_the_first_release_named_the_edge_decomposition() -> None:
+    body = " ".join(body_of("0.1.0"))
     assert "net = gross - fees - slippage - rebalance" in body
+
+
+def test_the_current_entry_says_what_changed_in_it() -> None:
+    body = " ".join(body_of(__version__)).lower()
+    assert "settings file" in body
+    assert "prun" in body
+
+
+def test_the_current_entry_is_the_version_the_code_says() -> None:
+    assert entries()[0].version == __version__
 
 
 def test_a_version_nobody_released_has_no_body() -> None:

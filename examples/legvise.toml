@@ -1,0 +1,41 @@
+# The desk's standing scan numbers.
+#
+# Pass it with `legvise --config examples/legvise.toml`, and check it on its own
+# with `legvise config check examples/legvise.toml`. A flag on the command line
+# beats anything here, for that run only.
+#
+# Every key is optional. What is left out runs on what the tool ships with, and
+# `legvise config show` says which of the two decided each number. A key this
+# file gets wrong is refused rather than ignored, so a typo stops the run
+# instead of quietly leaving the setting at its default.
+
+[scan]
+
+# Floor for the net edge, after fees, slippage and the rebalancing charge. Two
+# basis points is thin. It is the default because the screen has to let enough
+# through to be worth reading, not because it is a number to trade on.
+min_edge_bps = "4"
+
+# How far apart two books may have been observed and still be priced against
+# each other. Wider than the round trip to the venues and the pair is fiction.
+window_ms = 400
+
+# What the desk wants on each leg, in the base asset. A plan that cannot reach
+# this comes back trimmed rather than refused, with the size the book allowed.
+size = "0.5"
+
+# The three exposure limits. The first two trim a plan down; the last one stops
+# it. All three are quote asset notional.
+venue_cap = "250000"
+asset_cap = "400000"
+gross_cap = "1000000"
+
+# What capital costs while a transfer is in flight, and how many plans one
+# transfer is expected to serve before the desk has to move inventory again.
+# The charge is amortised across that many plans.
+carry_bps_hour = "6"
+cycles = 10
+
+# What to charge a plan whose rebalancing route is closed. Deliberately large:
+# it is not a fee, it is the cost of inventory that cannot get back.
+stranded_bps = "250"
