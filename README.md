@@ -219,6 +219,16 @@ legvise loop run --start USD --amount 10000 --min-edge-bps 3
 - **The book of record is one SQLite file.** An operator can copy it to a laptop
   and open it.
 
+## When something is refused
+
+Every refusal quotes a clause, and `docs/operations.md` pairs each stage of the
+rule book with the command that investigates it. It is generated, so it cannot
+name a command that was renamed.
+
+```
+legvise scan refusals --session SESSION
+```
+
 ## Checks
 
 Beyond lint, types and tests, the repository checks itself:

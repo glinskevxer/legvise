@@ -20,6 +20,7 @@ from legvise.tools import (
     build_architecture,
     build_commands,
     build_glossary,
+    build_operations,
     build_rules,
     check_changelog,
     check_cli,
@@ -72,6 +73,7 @@ GENERATED: Final[tuple[tuple[str, Callable[[], bool]], ...]] = (
     ("build_glossary", build_glossary.is_current),
     ("build_architecture", build_architecture.is_current),
     ("build_commands", build_commands.is_current),
+    ("build_operations", build_operations.is_current),
 )
 
 
