@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import closing
+
 import pytest
 
 from legvise.store.db import Database
@@ -14,7 +17,7 @@ from legvise.tools.check_indexes import (
 
 
 @pytest.fixture()
-def bare() -> Database:
+def bare() -> Iterator[Database]:
     """A tiny schema with one indexed key and one that is not."""
     handle = Database.in_memory()
     handle.execute("CREATE TABLE parent (code TEXT PRIMARY KEY)")
@@ -23,7 +26,8 @@ def bare() -> Database:
         " PRIMARY KEY (code, n))"
     )
     handle.execute("CREATE TABLE bad (code TEXT NOT NULL REFERENCES parent (code), n INTEGER)")
-    return handle
+    yield handle
+    handle.close()
 
 
 def test_the_real_schema_indexes_every_child_side() -> None:
@@ -57,10 +61,10 @@ def test_the_keys_are_discovered_from_the_database(bare: Database) -> None:
 
 
 def test_a_composite_key_is_read_as_one_key(bare: Database) -> None:
-    handle = Database.in_memory()
-    handle.execute("CREATE TABLE p (a TEXT, b TEXT, PRIMARY KEY (a, b))")
-    handle.execute("CREATE TABLE c (a TEXT, b TEXT, FOREIGN KEY (a, b) REFERENCES p (a, b))")
-    keys = foreign_keys(handle)
+    with closing(Database.in_memory()) as handle:
+        handle.execute("CREATE TABLE p (a TEXT, b TEXT, PRIMARY KEY (a, b))")
+        handle.execute("CREATE TABLE c (a TEXT, b TEXT, FOREIGN KEY (a, b) REFERENCES p (a, b))")
+        keys = foreign_keys(handle)
     assert len(keys) == 1
     assert set(keys[0].child_columns) == {"a", "b"}
 

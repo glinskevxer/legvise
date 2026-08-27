@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+
 import pytest
 
 from legvise.errors import BadArgument, Refused
@@ -22,8 +24,10 @@ TWO = Migration(2, "second", ("CREATE TABLE b (k TEXT PRIMARY KEY)",))
 
 
 @pytest.fixture()
-def db() -> Database:
-    return Database.in_memory()
+def db() -> Iterator[Database]:
+    handle = Database.in_memory()
+    yield handle
+    handle.close()
 
 
 def test_nothing_is_applied_on_a_fresh_database(db: Database) -> None:

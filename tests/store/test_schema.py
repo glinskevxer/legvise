@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from contextlib import suppress
 
 import pytest
@@ -33,10 +34,11 @@ EXPECTED_TABLES = (
 
 
 @pytest.fixture()
-def fresh() -> Database:
+def fresh() -> Iterator[Database]:
     handle = Database.in_memory()
     install(handle, applied_at=AT)
-    return handle
+    yield handle
+    handle.close()
 
 
 def test_every_expected_table_is_installed(fresh: Database) -> None:

@@ -84,7 +84,14 @@ def run(
             },
         )
     )
-    target = copy_into_memory(context.db) if dry_run else context.db
+    target = context.db
+    if dry_run:
+        # Closed when the command finishes rather than left to the garbage
+        # collector. An unclosed sqlite3 handle is a warning on 3.13 and a held
+        # file handle on every version, and the copy is opened per invocation,
+        # so a scheduler polling with `--dry-run` leaks one each time.
+        target = copy_into_memory(context.db)
+        ctx.call_on_close(target.close)
     scanner = Scanner(
         db=target,
         clock=context.clock,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Iterator
 
 import pytest
 
@@ -16,11 +17,20 @@ SESSION_START = dt.datetime(2025, 2, 11, 9, 30, tzinfo=dt.UTC)
 
 
 @pytest.fixture()
-def db() -> Database:
-    """An in-memory book of record with the schema already applied."""
+def db() -> Iterator[Database]:
+    """An in-memory book of record with the schema already applied.
+
+    Closed on the way out. An in-memory database costs nothing to leak in the
+    sense that matters -- there is no file -- but a connection nothing closed
+    is still a connection, and on Python 3.13 the collector says so out loud:
+    `ResourceWarning: unclosed database`, raised as an error by this suite's
+    `filterwarnings`, blaming whichever test happened to be running when the
+    collection ran rather than the one that leaked it.
+    """
     handle = Database.in_memory()
     install(handle, applied_at=INSTALLED_AT)
-    return handle
+    yield handle
+    handle.close()
 
 
 @pytest.fixture()

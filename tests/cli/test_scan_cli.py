@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
-from tests.cli.conftest import Run
+import sqlite3
+
+import pytest
+
+from legvise.cli import scan as scan_cli
+from legvise.store.db import Database, copy_into_memory
+from tests.cli.conftest import Run, load_crossing
 
 
 def test_a_scan_with_no_books_reports_nothing_priced(desk: Run) -> None:
@@ -102,3 +108,39 @@ def test_a_dry_run_prices_the_same_pairs_as_a_real_one(desk: Run) -> None:
     wet = desk("scan", "run", "--window-ms", "600000").output
     assert "priced      1" in dry
     assert "priced      1" in wet
+
+
+# The throwaway copy a dry run makes. It is opened per invocation, so a
+# scheduler polling with `--dry-run` leaked one every time until this closed it.
+
+
+def test_a_dry_run_closes_the_copy_it_priced_against(
+    desk: Run, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    made: list[Database] = []
+    real = copy_into_memory
+
+    def remember(source: Database) -> Database:
+        copy = real(source)
+        made.append(copy)
+        return copy
+
+    monkeypatch.setattr(scan_cli, "copy_into_memory", remember)
+    load_crossing(desk)
+    desk("scan", "run", "--window-ms", "600000", "--size", "2", "--dry-run")
+    assert len(made) == 1
+    with pytest.raises(sqlite3.ProgrammingError):
+        made[0].scalar("SELECT 1")
+
+
+def test_a_real_run_makes_no_copy_at_all(desk: Run, monkeypatch: pytest.MonkeyPatch) -> None:
+    made: list[Database] = []
+
+    def remember(source: Database) -> Database:
+        made.append(source)
+        return source
+
+    monkeypatch.setattr(scan_cli, "copy_into_memory", remember)
+    load_crossing(desk)
+    desk("scan", "run", "--window-ms", "600000", "--size", "2")
+    assert made == []

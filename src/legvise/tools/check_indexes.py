@@ -109,11 +109,8 @@ def problems_for(db: Database) -> list[str]:
 
 def problems() -> list[str]:
     """Every foreign key in the real schema whose child side is unindexed."""
-    db = _fresh()
-    try:
+    with _fresh() as db:
         return problems_for(db)
-    finally:
-        db.close()
 
 
 def main() -> int:

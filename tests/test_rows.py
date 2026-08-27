@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 from decimal import Decimal
 
 import pytest
@@ -22,9 +23,14 @@ from legvise.rows import (
 
 
 def one(sql: str) -> sqlite3.Row:
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    row: sqlite3.Row | None = conn.execute(sql).fetchone()
+    """One row from a throwaway connection, closed before it is read.
+
+    A `sqlite3.Row` outlives the connection it came from, so closing here costs
+    nothing and keeps the collector quiet.
+    """
+    with closing(sqlite3.connect(":memory:")) as conn:
+        conn.row_factory = sqlite3.Row
+        row: sqlite3.Row | None = conn.execute(sql).fetchone()
     assert row is not None
     return row
 

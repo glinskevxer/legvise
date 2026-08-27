@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import contextlib
 import sqlite3
+from collections.abc import Iterator
+from contextlib import closing
 from decimal import Decimal
 from pathlib import Path
 
@@ -19,20 +22,21 @@ from legvise.store.db import (
 
 
 @pytest.fixture()
-def db() -> Database:
+def db() -> Iterator[Database]:
     handle = Database.in_memory()
     handle.execute("CREATE TABLE t (k TEXT PRIMARY KEY, v TEXT NOT NULL)")
-    return handle
+    yield handle
+    handle.close()
 
 
 def test_foreign_keys_are_on_for_every_connection() -> None:
-    conn = connect(":memory:")
-    assert conn.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+    with closing(connect(":memory:")) as conn:
+        assert conn.execute("PRAGMA foreign_keys").fetchone()[0] == 1
 
 
 def test_rows_come_back_addressable_by_column_name() -> None:
-    conn = connect(":memory:")
-    row = conn.execute("SELECT 4 AS four").fetchone()
+    with closing(connect(":memory:")) as conn:
+        row = conn.execute("SELECT 4 AS four").fetchone()
     assert isinstance(row, sqlite3.Row)
     assert row["four"] == 4
 
@@ -260,3 +264,63 @@ def test_opening_a_book_checks_the_version(tmp_path: Path) -> None:
     handle = Database.open(tmp_path / "book.sqlite3")
     assert handle.scalar("SELECT sqlite_version()")
     handle.close()
+
+
+# Opening a database in a `with`. The sites that forgot a `finally` were not
+# obvious ones: an in-memory database leaks nothing anybody notices, and the
+# connection it left open only spoke up on Python 3.13.
+
+
+def is_open(db: Database) -> bool:
+    """True while the handle can still run a statement."""
+    try:
+        db.scalar("SELECT 1")
+    except sqlite3.ProgrammingError:
+        return False
+    return True
+
+
+def test_a_database_hands_itself_back_as_a_context_manager() -> None:
+    with Database.in_memory() as handle:
+        assert handle.scalar("SELECT 1") == 1
+
+
+def test_leaving_the_block_closes_the_connection() -> None:
+    with Database.in_memory() as handle:
+        assert is_open(handle)
+    assert not is_open(handle)
+
+
+def test_a_failure_inside_the_block_still_closes_it() -> None:
+    with contextlib.suppress(RuntimeError), Database.in_memory() as handle:
+        raise RuntimeError("something went wrong")
+    assert not is_open(handle)
+
+
+def test_the_error_from_inside_the_block_comes_back_out() -> None:
+    with pytest.raises(RuntimeError), Database.in_memory() as handle:
+        assert is_open(handle)
+        raise RuntimeError("something went wrong")
+
+
+def test_a_database_opened_at_a_path_closes_the_same_way(tmp_path: Path) -> None:
+    target = tmp_path / "book.sqlite3"
+    with Database.open(target) as handle:
+        handle.execute("CREATE TABLE t (k TEXT)")
+    assert not is_open(handle)
+    assert target.exists()
+
+
+def test_closing_a_handle_twice_is_allowed() -> None:
+    handle = Database.in_memory()
+    handle.close()
+    handle.close()
+    assert not is_open(handle)
+
+
+def test_a_throwaway_copy_can_be_opened_in_a_block(db: Database) -> None:
+    db.execute("INSERT INTO t (k, v) VALUES ('a', 'b')")
+    with copy_into_memory(db) as copy:
+        assert copy.scalar("SELECT count(*) FROM t") == 1
+    assert not is_open(copy)
+    assert is_open(db)

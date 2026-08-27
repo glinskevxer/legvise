@@ -143,6 +143,21 @@ class Database:
         """Close the connection. Further use raises from sqlite3 itself."""
         self._conn.close()
 
+    def __enter__(self) -> Database:
+        """Hand the handle back, so a caller can open one in a `with`."""
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        """Close the connection on the way out, whatever happened inside.
+
+        The alternative is a `try`/`finally` at every call site, and the sites
+        that forgot one were not obvious: an in-memory database leaks nothing a
+        person would notice, and the connection it left behind only spoke up on
+        Python 3.13, in a warning that named whichever test was running when the
+        collector got to it rather than the one that opened it.
+        """
+        self.close()
+
     @contextmanager
     def tx(self) -> Iterator[Database]:
         """Run a block in one transaction, nesting by counting rather than saving.
